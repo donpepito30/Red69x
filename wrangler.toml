@@ -1,3 +1,7 @@
 name = "live-cam-portal"
 compatibility_date = "2024-01-01"
-pages_build_output_dir = "dist"
+main = "dist/server.cjs"
+
+[assets]
+directory = "dist"
+binding = "ASSETS"
