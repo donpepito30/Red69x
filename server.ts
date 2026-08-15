@@ -5,7 +5,6 @@ import { GoogleGenAI } from '@google/genai';
 import { MOCK_MODELS } from './src/lib/mockModelsData.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { createServer as createViteServer } from 'vite';
 
 dotenv.config();
 
@@ -312,6 +311,7 @@ app.get('/api/models', async (req, res) => {
   // Vite middleware setup
 async function setupViteAndListen() {
   if (process.env.NODE_ENV !== 'production') {
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
