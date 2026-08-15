@@ -27,17 +27,16 @@ const __dirname = (() => {
   return process.cwd();
 })();
 
-async function startServer() {
-  const app = express();
-  const PORT = Number(process.env.PORT) || 3000;
+const app = express();
+const PORT = Number(process.env.PORT) || 3000;
 
-  app.use(cors());
-  app.use(express.json());
+app.use(cors());
+app.use(express.json());
 
-  const CACHE = new Map<string, { data: any[], timestamp: number }>();
+const CACHE = new Map<string, { data: any[], timestamp: number }>();
 
-  // API: /api/models
-  app.get('/api/models', async (req, res) => {
+// API: /api/models
+app.get('/api/models', async (req, res) => {
     try {
       const affiliateId = req.query.aff || req.query.affiliate_id || 'aff_velvet_101';
       let rawFetchedModels: any[] = [];
@@ -311,6 +310,7 @@ async function startServer() {
   });
 
   // Vite middleware setup
+async function setupViteAndListen() {
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
       server: { middlewareMode: true },
@@ -327,9 +327,13 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-  });
+  if (process.env.NODE_ENV !== 'production' || process.env.RUN_LOCAL === 'true') {
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+    });
+  }
 }
 
-startServer();
+setupViteAndListen();
+
+export default app;
