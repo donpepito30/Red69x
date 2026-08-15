@@ -5,6 +5,7 @@ import { GoogleGenAI } from '@google/genai';
 import { MOCK_MODELS } from './src/lib/mockModelsData.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import serverless from 'serverless-http';
 
 dotenv.config();
 
@@ -336,4 +337,10 @@ async function setupViteAndListen() {
 
 setupViteAndListen();
 
-export default app;
+const handler = serverless(app);
+
+export default {
+  fetch: async (request: Request, env: any, ctx: any) => {
+    return handler(request, ctx);
+  }
+};
