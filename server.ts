@@ -114,6 +114,61 @@ setupViteAndListen();
 export default {
   async fetch(request: Request, env: any, ctx: any): Promise<Response> {
     const url = new URL(request.url);
+
+    if (url.pathname === '/api/models') {
+      try {
+        const apiRes = await fetch('https://go.whitetrafsa.com/api/models', {
+          method: 'GET',
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'application/json, text/plain, */*',
+            'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8'
+          }
+        });
+
+        if (!apiRes.ok) {
+          const errorText = await apiRes.text();
+          return new Response(JSON.stringify({
+            error: `API Afiliados bloqueó o falló con status ${apiRes.status}`,
+            responseSnippet: errorText.slice(0, 300)
+          }), {
+            status: apiRes.status,
+            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+          });
+        }
+
+        const rawData: any = await apiRes.json();
+        const modelsList = Array.isArray(rawData) ? rawData : (rawData.models || rawData.data || []);
+
+        const formattedModels = modelsList.map((m: any) => ({
+          ...m,
+          id: m.id || m.username,
+          username: m.username,
+          name: m.username,
+          isLive: m.status === 'public' || m.isLive || true,
+          avatar: m.avatarUrl || `https://img.strpst.com/images/avatars/${m.username}.jpg`,
+          thumbnail: m.previewUrl || m.popularSnapshotUrl || `https://img.strpst.com/images/vthumbs/${m.username}.jpg`,
+          embedUrl: `https://stripchat.com/embed/${m.username}`,
+          affiliateUrl: `https://stripcash.com/live/${m.username}?aff=aff_velvet_101`,
+          viewers: m.viewersCount || m.viewers || 0,
+          tags: m.tags || []
+        }));
+
+        return new Response(JSON.stringify(formattedModels), {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Cache-Control': 'no-store'
+          }
+        });
+      } catch (err: any) {
+        return new Response(JSON.stringify({ error: 'Excepción en Cloudflare Worker', details: err.message }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+        });
+      }
+    }
     
     // Si la petición no es de API, delegarla a los assets estáticos de Cloudflare
     if (!url.pathname.startsWith('/api')) {
