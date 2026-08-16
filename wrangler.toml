@@ -1,7 +1,6 @@
 name = "red69x"
-compatibility_date = "2024-09-23"
-compatibility_flags = ["nodejs_compat"]
-main = "./dist/server.js"
+main = "dist/server.js"
+compatibility_date = "2024-09-25"
 
-[assets]
-directory = "./dist"
+[site]
+bucket = "./dist"
