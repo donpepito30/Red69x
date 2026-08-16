@@ -303,9 +303,24 @@ export default {
       }
     }
     
-    // Si la petición no es de API, delegarla a los assets estáticos de Cloudflare
+    // Si la petición no es de API, delegarla a los assets estáticos de Cloudflare (y manejar React Router SPA)
     if (!url.pathname.startsWith('/api')) {
-      return env.ASSETS.fetch(request);
+      if (env.ASSETS) {
+        try {
+          let response = await env.ASSETS.fetch(request);
+          // Si el archivo no existe (ej. una ruta de React como /model/123), servimos el index.html
+          if (response.status === 404) {
+            const indexUrl = new URL(request.url);
+            indexUrl.pathname = '/index.html';
+            return env.ASSETS.fetch(new Request(indexUrl.toString(), request));
+          }
+          return response;
+        } catch (e) {
+          return new Response("Error sirviendo assets: " + String(e), { status: 500 });
+        }
+      } else {
+        return new Response("Error de configuración: No se encontró env.ASSETS", { status: 500 });
+      }
     }
 
     // Manejo de la petición de API dentro del runtime de Workers
