@@ -120,14 +120,16 @@ app.get('/api/models', async (req, res) => {
   // Vite middleware setup
 async function setupViteAndListen() {
   if (process.env.NODE_ENV !== 'production') {
-    const { createServer: createViteServer } = await import('vite');
+    const vitePkg = 'vi' + 'te';
+    const { createServer: createViteServer } = await import(/* @vite-ignore */ vitePkg);
     const vite = await createViteServer({
       server: { middlewareMode: true, hmr: false },
       appType: 'spa',
     });
     app.use(vite.middlewares);
   } else {
-    const path = await import('path');
+    const pathPkg = 'pa' + 'th';
+    const path = await import(/* @vite-ignore */ pathPkg);
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
@@ -140,7 +142,10 @@ async function setupViteAndListen() {
   });
 }
 
-setupViteAndListen();
+// SOLO ejecutar el listener local si estamos en un entorno Node.js real (no Cloudflare)
+if (typeof process !== 'undefined' && process.versions && process.versions.node) {
+  setupViteAndListen();
+}
 
 export default {
   async fetch(request: Request, env: any, ctx: any): Promise<Response> {
