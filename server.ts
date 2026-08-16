@@ -147,15 +147,18 @@ if (typeof process !== 'undefined' && process.versions && process.versions.node)
   setupViteAndListen();
 }
 
+// Memoria caché simple en el código para Rate Limiting (sin requerir variables externas)
+const rateLimitCache = new Map<string, { count: number, resetTime: number }>();
+
 export default {
   async fetch(request: Request, env: any, ctx: any): Promise<Response> {
     const url = new URL(request.url);
 
-    // --- TAREA 4: Variables de Entorno Seguras ---
-    const ALLOWED_ORIGIN = env.ALLOWED_ORIGIN || '*';
-    const SECRET_TOKEN = env.SECRET_TOKEN || ''; // Se puede usar para endpoints administrativos protegidos
+    // --- SEGURIDAD A NIVEL DE CÓDIGO (Sin variables de entorno) ---
+    // Cambia '*' por tu dominio real si deseas restringirlo en el futuro (ej. 'https://midominio.com')
+    const ALLOWED_ORIGIN = '*';
 
-    // --- TAREA 2: Validación de Origin y User-Agent ---
+    // --- Validación de Origin y User-Agent ---
     const origin = request.headers.get('Origin') || '';
     const userAgent = request.headers.get('User-Agent') || '';
 
@@ -166,34 +169,38 @@ export default {
       });
     }
 
-    // Validación de CORS / Origin si no es público (*)
+    // Validación de CORS / Origin
     if (ALLOWED_ORIGIN !== '*' && origin && !origin.includes(ALLOWED_ORIGIN)) {
       return new Response(JSON.stringify({ error: 'Unauthorized Origin. Access Denied.' }), { 
         status: 403, headers: { 'Content-Type': 'application/json' } 
       });
     }
 
-    // --- TAREA 3: Rate Limiting usando Cloudflare KV ---
-    // NOTA: Para que esto funcione, debes enlazar un Namespace KV llamado "RATE_LIMIT_KV" en el panel de Cloudflare o en tu wrangler.toml
+    // --- Rate Limiting Simple en Memoria (Nivel Código) ---
     const clientIp = request.headers.get('cf-connecting-ip') || 'unknown';
-    if (clientIp !== 'unknown' && env.RATE_LIMIT_KV) {
-      try {
-        const limitKey = `rate_limit_${clientIp}`;
-        const currentCountStr = await env.RATE_LIMIT_KV.get(limitKey);
-        let currentCount = currentCountStr ? parseInt(currentCountStr, 10) : 0;
-
-        // Limite de 150 peticiones por minuto por IP para evitar scraping masivo
-        if (currentCount > 150) {
-          return new Response(JSON.stringify({ error: 'Too Many Requests. Rate limit exceeded.' }), { 
-            status: 429, headers: { 'Content-Type': 'application/json', 'Retry-After': '60' } 
-          });
-        }
-
-        // Incrementar y guardar asíncronamente (expira en 60 segundos)
-        ctx.waitUntil(env.RATE_LIMIT_KV.put(limitKey, (currentCount + 1).toString(), { expirationTtl: 60 }));
-      } catch (e) {
-        console.error("KV Rate Limit Error", e);
+    if (clientIp !== 'unknown') {
+      const now = Date.now();
+      const limitRecord = rateLimitCache.get(clientIp);
+      
+      // Limpiar registros viejos (caducidad de 60 segundos)
+      if (limitRecord && now > limitRecord.resetTime) {
+        rateLimitCache.delete(clientIp);
       }
+      
+      const currentCount = rateLimitCache.get(clientIp)?.count || 0;
+      
+      // Limite de 150 peticiones por minuto por IP
+      if (currentCount >= 150) {
+        return new Response(JSON.stringify({ error: 'Too Many Requests. Rate limit exceeded.' }), { 
+          status: 429, headers: { 'Content-Type': 'application/json', 'Retry-After': '60' } 
+        });
+      }
+      
+      // Incrementar contador
+      rateLimitCache.set(clientIp, { 
+        count: currentCount + 1, 
+        resetTime: limitRecord && limitRecord.resetTime > now ? limitRecord.resetTime : now + 60000 
+      });
     }
 
     if (url.pathname === '/api/models') {
