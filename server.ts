@@ -5,7 +5,6 @@ import { GoogleGenAI } from '@google/genai';
 import { MOCK_MODELS } from './src/lib/mockModelsData.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import serverless from 'serverless-http';
 
 dotenv.config();
 
@@ -337,10 +336,25 @@ async function setupViteAndListen() {
 
 setupViteAndListen();
 
-const handler = serverless(app);
-
 export default {
-  fetch: async (request: Request, env: any, ctx: any) => {
-    return handler(request, ctx);
+  async fetch(request: Request, env: any, ctx: any): Promise<Response> {
+    const url = new URL(request.url);
+    
+    // Si la petición no es de API, delegarla a los assets estáticos de Cloudflare
+    if (!url.pathname.startsWith('/api')) {
+      return env.ASSETS.fetch(request);
+    }
+
+    // Manejo de la petición de API dentro del runtime de Workers
+    return new Promise((resolve) => {
+      app(request as any, {
+        end: (data: any) => resolve(new Response(data)),
+        setHeader: () => {},
+        writeHead: () => {},
+        status: () => ({ send: (data: any) => resolve(new Response(data)) }),
+        send: (data: any) => resolve(new Response(typeof data === 'string' ? data : JSON.stringify(data))),
+        json: (data: any) => resolve(new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json' } }))
+      } as any);
+    });
   }
 };
