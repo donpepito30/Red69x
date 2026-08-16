@@ -7,7 +7,7 @@ import { GoogleGenAI } from '@google/genai';
 dotenv.config();
 
 const app = express();
-const PORT = Number(process.env.PORT) || 3000;
+const PORT = 3000;
 
 app.use(cors());
 app.use(express.json());
@@ -122,7 +122,7 @@ async function setupViteAndListen() {
   if (process.env.NODE_ENV !== 'production') {
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: { middlewareMode: true, hmr: false },
       appType: 'spa',
     });
     app.use(vite.middlewares);
@@ -146,8 +146,76 @@ export default {
   async fetch(request: Request, env: any, ctx: any): Promise<Response> {
     const url = new URL(request.url);
 
+    // --- TAREA 4: Variables de Entorno Seguras ---
+    const ALLOWED_ORIGIN = env.ALLOWED_ORIGIN || '*';
+    const SECRET_TOKEN = env.SECRET_TOKEN || ''; // Se puede usar para endpoints administrativos protegidos
+
+    // --- TAREA 2: Validación de Origin y User-Agent ---
+    const origin = request.headers.get('Origin') || '';
+    const userAgent = request.headers.get('User-Agent') || '';
+
+    // Bloquear peticiones sin User-Agent (bots básicos o scrapers malignos)
+    if (!userAgent || userAgent.trim() === '') {
+      return new Response(JSON.stringify({ error: 'User-Agent header is required' }), { 
+        status: 400, headers: { 'Content-Type': 'application/json' } 
+      });
+    }
+
+    // Validación de CORS / Origin si no es público (*)
+    if (ALLOWED_ORIGIN !== '*' && origin && !origin.includes(ALLOWED_ORIGIN)) {
+      return new Response(JSON.stringify({ error: 'Unauthorized Origin. Access Denied.' }), { 
+        status: 403, headers: { 'Content-Type': 'application/json' } 
+      });
+    }
+
+    // --- TAREA 3: Rate Limiting usando Cloudflare KV ---
+    // NOTA: Para que esto funcione, debes enlazar un Namespace KV llamado "RATE_LIMIT_KV" en el panel de Cloudflare o en tu wrangler.toml
+    const clientIp = request.headers.get('cf-connecting-ip') || 'unknown';
+    if (clientIp !== 'unknown' && env.RATE_LIMIT_KV) {
+      try {
+        const limitKey = `rate_limit_${clientIp}`;
+        const currentCountStr = await env.RATE_LIMIT_KV.get(limitKey);
+        let currentCount = currentCountStr ? parseInt(currentCountStr, 10) : 0;
+
+        // Limite de 150 peticiones por minuto por IP para evitar scraping masivo
+        if (currentCount > 150) {
+          return new Response(JSON.stringify({ error: 'Too Many Requests. Rate limit exceeded.' }), { 
+            status: 429, headers: { 'Content-Type': 'application/json', 'Retry-After': '60' } 
+          });
+        }
+
+        // Incrementar y guardar asíncronamente (expira en 60 segundos)
+        ctx.waitUntil(env.RATE_LIMIT_KV.put(limitKey, (currentCount + 1).toString(), { expirationTtl: 60 }));
+      } catch (e) {
+        console.error("KV Rate Limit Error", e);
+      }
+    }
+
     if (url.pathname === '/api/models') {
       try {
+        // --- TAREA 1: Validación y Saneamiento de Entradas (Prevención de Inyección) ---
+        // Como proxy a una API en lugar de una base de datos SQL directa, saneamos estrictamente los parámetros de la URL
+        const allowedParams = ['limit', 'gender', 'tags', 'search', 'status', 'isLovenseOnly', 'isHdOnly', 'language', 'profileEthnicity', 'profileHairColor', 'profileBodyType', 'sort'];
+        const safeParams = new URLSearchParams();
+
+        url.searchParams.forEach((value, key) => {
+          if (allowedParams.includes(key)) {
+            // Saneamiento riguroso: solo permite letras, números, espacios y guiones
+            // Previene inyecciones XSS, NoSQL o de cabeceras en el sistema destino
+            const sanitizedValue = value.replace(/[^\w\s\-\.,ñáéíóúÁÉÍÓÚ]/gi, '').trim();
+            if (sanitizedValue) {
+              safeParams.append(key, sanitizedValue);
+            }
+          }
+        });
+
+        // Forzar límite máximo seguro
+        let limitVal = parseInt(safeParams.get('limit') || '300', 10);
+        if (isNaN(limitVal) || limitVal < 1 || limitVal > 500) {
+          limitVal = 300;
+        }
+        safeParams.set('limit', limitVal.toString());
+
         // 1. Verificar si la respuesta ya existe en la Cache API de Cloudflare
         const cacheUrl = new URL(request.url);
         const cache = caches.default;
@@ -159,14 +227,10 @@ export default {
         }
 
         const targetUrl = new URL('https://go.whitetrafsa.com/api/models');
-        url.searchParams.forEach((value, key) => {
+        // Usar EXCLUSIVAMENTE los parámetros saneados
+        safeParams.forEach((value, key) => {
           targetUrl.searchParams.append(key, value);
         });
-        
-        // Ensure limit is sufficient for frontend pagination if not specified
-        if (!targetUrl.searchParams.has('limit')) {
-          targetUrl.searchParams.set('limit', '300');
-        }
 
         const apiRes = await fetch(targetUrl.toString(), {
           method: 'GET',
