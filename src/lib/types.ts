@@ -51,6 +51,11 @@ export interface Model {
   tipMenu: TipOption[];
   chatUrl?: string;
   affiliateUrl?: string;
+  embedUrl?: string;
+  avatar?: string;
+  thumbnail?: string;
+  name?: string;
+  isLive?: boolean;
 }
 
 export interface ChatMessage {

@@ -17,28 +17,46 @@ const CACHE = new Map<string, { data: any[], timestamp: number }>();
 // API: /api/models
 app.get('/api/models', async (req, res) => {
   try {
-    const response = await fetch('https://go.whitetrafsa.com/api/models', {
+    const apiRes = await fetch('https://go.whitetrafsa.com/api/models', {
       headers: {
         'Accept': 'application/json',
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
       }
     });
 
-    if (!response.ok) {
-      throw new Error(`Error API Afiliados: ${response.status}`);
+    if (!apiRes.ok) {
+      throw new Error(`Error API Afiliados: ${apiRes.status}`);
     }
 
-    const data = await response.json();
-    // Configurar cabeceras de caché y CORS explícitas
+    const rawData = await apiRes.json();
+
+    // Extraer la lista (soporta si la API responde como array directo [...] o como objeto { models: [...] })
+    const modelsList = Array.isArray(rawData) ? rawData : (rawData.models || rawData.data || []);
+
+    // Mapear los nombres de campos para garantizar compatibilidad total con el Frontend
+    const formattedModels = modelsList.map((m: any) => ({
+      ...m,
+      id: m.id || m.username,
+      username: m.username,
+      name: m.username,
+      isLive: m.status === 'public' || m.isLive || true,
+      avatar: m.avatarUrl || `https://img.strpst.com/images/avatars/${m.username}.jpg`,
+      thumbnail: m.previewUrl || m.popularSnapshotUrl || `https://img.strpst.com/images/vthumbs/${m.username}.jpg`,
+      embedUrl: `https://stripchat.com/embed/${m.username}`,
+      affiliateUrl: `https://stripcash.com/live/${m.username}?aff=aff_velvet_101`,
+      viewers: m.viewersCount || m.viewers || 0,
+      tags: m.tags || []
+    }));
+
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Content-Type', 'application/json');
-    return res.json(data);
+    return res.json(formattedModels);
   } catch (error) {
-    console.error('Fallo en la API real:', error);
-    // Retornar error JSON explicativo en lugar de silenciarlo con MOCK_MODELS
-    return res.status(502).json({
-      error: 'No se pudo conectar con la API de afiliados',
-      details: String(error)
+    console.error('Error al mapear la API:', error);
+    // Retornar error JSON explicativo
+    return res.status(500).json({ 
+      error: 'Error al procesar la API de afiliados', 
+      details: String(error) 
     });
   }
 });
