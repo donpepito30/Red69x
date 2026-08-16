@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "vite build && esbuild server.ts --bundle --platform=node --format=esm --packages=external --sourcemap --outfile=dist/server.js",
+    "build": "vite build && esbuild server.ts --bundle --target=es2022 --format=esm --packages=external --sourcemap --outfile=dist/server.js",
     "start": "NODE_ENV=production node dist/server.js",
     "deploy": "wrangler deploy --no-bundle"
   },
