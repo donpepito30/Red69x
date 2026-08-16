@@ -1,6 +1,6 @@
 
 
-import React, { useState, memo } from 'react';
+import React, { useState, useEffect, memo } from 'react';
 import { Search, Flame, Heart, Coins, SlidersHorizontal, X } from 'lucide-react';
 import { Gender, FilterState, Model } from '@/lib/types';
 
@@ -24,6 +24,22 @@ export const Navbar: React.FC<NavbarProps> = memo(({
   onSelectModel,
 }) => {
   const [showFavorites, setShowFavorites] = useState(false);
+  const [localSearch, setLocalSearch] = useState(filters.search);
+
+  // Sync local search with external filter clears
+  useEffect(() => {
+    setLocalSearch(filters.search);
+  }, [filters.search]);
+
+  // Debounce effect
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (filters.search !== localSearch) {
+        setFilters((prev) => ({ ...prev, search: localSearch }));
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [localSearch, setFilters, filters.search]);
 
   const genderOptions: { id: Gender | 'all'; label: string; icon: string }[] = [
     { id: 'all', label: 'Todos', icon: '🔥' },
@@ -63,13 +79,13 @@ export const Navbar: React.FC<NavbarProps> = memo(({
               <input
                 type="text"
                 placeholder="Buscar por modelo, nacionalidad o tema..."
-                value={filters.search}
-                onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))}
+                value={localSearch}
+                onChange={(e) => setLocalSearch(e.target.value)}
                 className="w-full bg-zinc-900/90 text-sm text-zinc-100 placeholder-zinc-500 pl-10 pr-9 py-2 rounded-full border border-zinc-800 focus:border-rose-500/80 focus:ring-2 focus:ring-rose-500/20 outline-none transition-all"
               />
-              {filters.search && (
+              {localSearch && (
                 <button
-                  onClick={() => setFilters((prev) => ({ ...prev, search: '' }))}
+                  onClick={() => { setLocalSearch(''); setFilters((prev) => ({ ...prev, search: '' })); }}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white"
                 >
                   <X className="w-4 h-4" />

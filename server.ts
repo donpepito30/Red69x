@@ -27,6 +27,17 @@ app.get('/api/models', async (req, res) => {
       targetUrl.searchParams.set('limit', '300');
     }
 
+    const cacheKey = targetUrl.toString();
+    const cached = CACHE.get(cacheKey);
+    const now = Date.now();
+    // 60 seconds cache
+    if (cached && (now - cached.timestamp < 60000)) {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=120');
+      return res.json(cached.data);
+    }
+
     const apiRes = await fetch(targetUrl.toString(), {
       headers: {
         'Accept': 'application/json, text/plain, */*',
@@ -58,8 +69,11 @@ app.get('/api/models', async (req, res) => {
       tags: m.tags || []
     }));
 
+    CACHE.set(cacheKey, { data: formattedModels, timestamp: now });
+
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=120');
     return res.json(formattedModels);
   } catch (error) {
     console.error('Error al mapear la API:', error);
@@ -112,11 +126,18 @@ async function setupViteAndListen() {
       appType: 'spa',
     });
     app.use(vite.middlewares);
-    
-    app.listen(PORT, '0.0.0.0', () => {
-      console.log(`Server running on http://localhost:${PORT}`);
+  } else {
+    const path = await import('path');
+    const distPath = path.join(process.cwd(), 'dist');
+    app.use(express.static(distPath));
+    app.get('*', (req, res) => {
+      res.sendFile(path.join(distPath, 'index.html'));
     });
   }
+
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server running on port ${PORT}`);
+  });
 }
 
 setupViteAndListen();
@@ -127,6 +148,16 @@ export default {
 
     if (url.pathname === '/api/models') {
       try {
+        // 1. Verificar si la respuesta ya existe en la Cache API de Cloudflare
+        const cacheUrl = new URL(request.url);
+        const cache = caches.default;
+        let response = await cache.match(cacheUrl);
+
+        if (response) {
+          // Respuesta servida instantáneamente desde la caché Edge de Cloudflare
+          return response;
+        }
+
         const targetUrl = new URL('https://go.whitetrafsa.com/api/models');
         url.searchParams.forEach((value, key) => {
           targetUrl.searchParams.append(key, value);
@@ -174,14 +205,20 @@ export default {
           tags: m.tags || []
         }));
 
-        return new Response(JSON.stringify(formattedModels), {
+        // 3. Crear la respuesta asignando cabeceras de caché por 60 segundos
+        response = new Response(JSON.stringify(formattedModels), {
           status: 200,
           headers: {
             'Content-Type': 'application/json',
             'Access-Control-Allow-Origin': '*',
-            'Cache-Control': 'no-store'
+            'Cache-Control': 'public, max-age=60, stale-while-revalidate=120'
           }
         });
+
+        // 4. Guardar en la memoria global de Cloudflare asíncronamente
+        ctx.waitUntil(cache.put(cacheUrl, response.clone()));
+
+        return response;
       } catch (err: any) {
         return new Response(JSON.stringify({ error: 'Excepción en Cloudflare Worker', details: err.message }), {
           status: 500,
