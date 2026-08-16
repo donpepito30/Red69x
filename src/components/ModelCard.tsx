@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect, memo } from 'react';
 import { Model } from '@/lib/types';
 import { Eye, Heart, Zap, Play, Volume2, VolumeX } from 'lucide-react';
-import Hls from 'hls.js';
+import { hlsManager } from '@/lib/hlsManager';
 
 interface ModelCardProps {
   model: Model;
@@ -19,68 +19,77 @@ export const ModelCard: React.FC<ModelCardProps> = memo(({
   onSelectModel,
 }) => {
   const [isHovered, setIsHovered] = useState(false);
-  const [shouldLoadVideo, setShouldLoadVideo] = useState(false);
+  const [isActive, setIsActive] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   const [hasVideoError, setHasVideoError] = useState(false);
+  
   const videoRef = useRef<HTMLVideoElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
   const hoverTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Suscripción al Singleton global para saber si este video debe estar activo
+  useEffect(() => {
+    return hlsManager.subscribe((activeId) => {
+      const active = activeId === model.id;
+      setIsActive(active);
+      if (!active && videoRef.current) {
+        // Cleanup visual inmediato cuando otro toma el control
+        videoRef.current.pause();
+        videoRef.current.removeAttribute('src');
+        videoRef.current.load();
+      }
+    });
+  }, [model.id]);
+
+  // Manejo visual de HLS delegando al Singleton
+  useEffect(() => {
+    if (isActive && videoRef.current && model.videoUrl && !hasVideoError) {
+      hlsManager.play(videoRef.current, model.videoUrl, () => {
+        setHasVideoError(true);
+      });
+    }
+  }, [isActive, model.videoUrl, hasVideoError]);
+
+  // IntersectionObserver para Móviles (Auto-Play al hacer scroll)
+  useEffect(() => {
+    const isMobile = window.matchMedia('(max-width: 768px)').matches;
+    if (!isMobile || !cardRef.current) return;
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        // Si la tarjeta está 70% visible en pantalla, toma el Singleton
+        if (entry.isIntersecting && entry.intersectionRatio >= 0.7) {
+          hlsManager.setActiveId(model.id);
+        } else if (!entry.isIntersecting && hlsManager.getActiveId() === model.id) {
+          hlsManager.setActiveId(null);
+        }
+      });
+    }, {
+      threshold: [0, 0.7]
+    });
+
+    observer.observe(cardRef.current);
+    return () => observer.disconnect();
+  }, [model.id]);
 
   const handleMouseEnter = () => {
     setIsHovered(true);
-    // Debounce video mount by 120ms to prevent triggering network requests on fast cursor passes
+    if (window.matchMedia('(max-width: 768px)').matches) return; // Móvil usa scroll
+    
     if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
     hoverTimerRef.current = setTimeout(() => {
-      setShouldLoadVideo(true);
+      hlsManager.setActiveId(model.id);
     }, 120);
   };
 
   const handleMouseLeave = () => {
     setIsHovered(false);
-    setShouldLoadVideo(false);
     if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
-    if (videoRef.current) {
-      videoRef.current.pause();
+    
+    if (hlsManager.getActiveId() === model.id) {
+      hlsManager.setActiveId(null);
     }
   };
-
-  useEffect(() => {
-    let hls: Hls | null = null;
-    
-    if (shouldLoadVideo && videoRef.current && model.videoUrl && !hasVideoError) {
-      const video = videoRef.current;
-      
-      if (Hls.isSupported() && model.videoUrl.includes('.m3u8')) {
-        hls = new Hls({
-          enableWorker: true,
-          lowLatencyMode: true,
-        });
-        hls.loadSource(model.videoUrl);
-        hls.attachMedia(video);
-        hls.on(Hls.Events.MANIFEST_PARSED, () => {
-          video.play().catch(() => setHasVideoError(true));
-        });
-        hls.on(Hls.Events.ERROR, (event, data) => {
-          if (data.fatal) {
-            setHasVideoError(true);
-          }
-        });
-      } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-        video.src = model.videoUrl;
-        video.addEventListener('loadedmetadata', () => {
-          video.play().catch(() => setHasVideoError(true));
-        });
-      } else {
-        video.src = model.videoUrl;
-        video.play().catch(() => setHasVideoError(true));
-      }
-    }
-
-    return () => {
-      if (hls) {
-        hls.destroy();
-      }
-    };
-  }, [shouldLoadVideo, model.videoUrl, hasVideoError]);
 
   useEffect(() => {
     return () => {
@@ -94,6 +103,7 @@ export const ModelCard: React.FC<ModelCardProps> = memo(({
 
   return (
     <div
+      ref={cardRef}
       onClick={() => onSelectModel(model)}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
@@ -108,18 +118,17 @@ export const ModelCard: React.FC<ModelCardProps> = memo(({
           loading="lazy"
           decoding="async"
           className={`w-full h-full object-cover transition-opacity duration-300 group-hover:scale-105 ${
-            isHovered && shouldLoadVideo && !hasVideoError ? 'opacity-0' : 'opacity-100'
+            isActive && !hasVideoError ? 'opacity-0' : 'opacity-100'
           }`}
         />
 
-        {/* Video Stream Preview ONLY mounted when hovered for >120ms */}
-        {shouldLoadVideo && model.videoUrl && !hasVideoError && (
+        {/* Video Stream Preview ONLY mounted when active */}
+        {isActive && model.videoUrl && !hasVideoError && (
           <video
             ref={videoRef}
             muted={isMuted}
             loop
             playsInline
-            onError={() => setHasVideoError(true)}
             className="absolute inset-0 w-full h-full object-cover z-0"
           />
         )}
@@ -166,7 +175,7 @@ export const ModelCard: React.FC<ModelCardProps> = memo(({
         </div>
 
         {/* Hover Audio Toggle */}
-        {isHovered && shouldLoadVideo && model.videoUrl && (
+        {(isHovered || isActive) && model.videoUrl && (
           <button
             onClick={(e) => {
               e.stopPropagation();

@@ -135,80 +135,97 @@ export const ModelRoomModal: React.FC<ModelRoomModalProps> = ({
     if (!videoElem || streamSource !== 'video' || !activeStreamUrl) return;
 
     let hls: Hls | null = null;
+    let retryTimeout: NodeJS.Timeout;
+    let retryCount = 0;
+    
     setVideoError(false);
 
     const isHlsUrl = activeStreamUrl.includes('.m3u8');
 
-    if (isHlsUrl && videoElem.canPlayType('application/vnd.apple.mpegurl')) {
-      // Native HLS support (Safari / iOS)
-      videoElem.src = activeStreamUrl;
-      videoElem.play().catch(() => {});
-    } else if (isHlsUrl && Hls.isSupported()) {
-      // Fortified High-Performance HLS Config for ultra-stable live streaming
-      hls = new Hls({
-        enableWorker: true,
-        lowLatencyMode: false, // Stable buffer margin eliminates micro-stalls
-        capLevelToPlayerSize: false, // Prevents abrupt quality jumps and stutter on fullscreen toggle
-        maxBufferLength: 45, // 45s buffer prevents underruns on shaky connections
-        maxMaxBufferLength: 90,
-        maxBufferSize: 90 * 1024 * 1024, // 90MB RAM cap
-        backBufferLength: 15,
-        liveSyncDurationCount: 3,
-        liveMaxLatencyDurationCount: 10,
-        progressive: true,
-        startLevel: -1,
-        manifestLoadingTimeOut: 10000,
-        manifestLoadingMaxRetry: 5,
-        levelLoadingTimeOut: 10000,
-        fragLoadingTimeOut: 20000,
-        fragLoadingMaxRetry: 6,
-      });
+    const initPlayer = () => {
+      if (hls) {
+        hls.destroy();
+      }
 
-      hls.loadSource(activeStreamUrl);
-      hls.attachMedia(videoElem);
-
-      hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        videoElem.play().catch((err) => {
-          console.warn('Autoplay prevented by browser:', err);
+      if (isHlsUrl && videoElem.canPlayType('application/vnd.apple.mpegurl')) {
+        // Native HLS support (Safari / iOS)
+        videoElem.src = activeStreamUrl;
+        videoElem.play().catch(() => {});
+        videoElem.onerror = () => {
+           setVideoError(true);
+           const delay = Math.min(1000 * Math.pow(2, retryCount), 15000);
+           retryCount++;
+           retryTimeout = setTimeout(initPlayer, delay);
+        };
+      } else if (isHlsUrl && Hls.isSupported()) {
+        // Fortified High-Performance HLS Config for ultra-stable live streaming
+        hls = new Hls({
+          enableWorker: true,
+          lowLatencyMode: false,
+          capLevelToPlayerSize: false,
+          maxBufferLength: 45,
+          maxMaxBufferLength: 90,
+          maxBufferSize: 90 * 1024 * 1024,
+          backBufferLength: 15,
+          liveSyncDurationCount: 3,
+          liveMaxLatencyDurationCount: 10,
+          progressive: true,
+          startLevel: -1,
+          manifestLoadingTimeOut: 10000,
+          manifestLoadingMaxRetry: 5,
+          levelLoadingTimeOut: 10000,
+          fragLoadingTimeOut: 20000,
+          fragLoadingMaxRetry: 6,
         });
-      });
 
-      // Advanced auto-recovery for smooth uninterrupted live streaming
-      hls.on(Hls.Events.ERROR, (_evt, data) => {
-        if (data.fatal) {
-          console.warn('HLS stream error detected, triggering connection recovery:', data.type);
-          if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
-            hls?.startLoad();
-          } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
-            hls?.recoverMediaError();
-          } else {
-            // Attempt one final full reload before setting error state
-            try {
-              hls?.destroy();
-              hls = new Hls({ enableWorker: true });
-              hls.loadSource(activeStreamUrl);
-              hls.attachMedia(videoElem);
-            } catch {
-              setVideoError(true);
-            }
+        hls.loadSource(activeStreamUrl);
+        hls.attachMedia(videoElem);
+
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          retryCount = 0; // Reset backoff on success
+          setVideoError(false);
+          videoElem.play().catch((err) => {
+            console.warn('Autoplay prevented by browser:', err);
+          });
+        });
+
+        // Advanced auto-recovery for smooth uninterrupted live streaming
+        hls.on(Hls.Events.ERROR, (_evt, data) => {
+          if (data.fatal) {
+            console.warn('HLS stream error detected, triggering connection recovery:', data.type);
+            setVideoError(true);
+            
+            // Exponential backoff retry logic running in the background
+            const delay = Math.min(1000 * Math.pow(2, retryCount), 15000);
+            console.log(`[Auto-Retry] Reintentando conexión HLS en ${delay}ms...`);
+            retryCount++;
+            clearTimeout(retryTimeout);
+            retryTimeout = setTimeout(initPlayer, delay);
           }
-        }
-      });
-    } else {
-      // Native playback for MP4 or other direct video formats
-      videoElem.src = activeStreamUrl;
-      videoElem.play().catch((err) => {
-        console.warn('Native video autoplay prevented by browser:', err);
-      });
-    }
+        });
+      } else {
+        // Native playback for MP4 or other direct video formats
+        videoElem.src = activeStreamUrl;
+        videoElem.play().catch((err) => {
+          console.warn('Native video autoplay prevented by browser:', err);
+        });
+        videoElem.onerror = () => {
+           setVideoError(true);
+        };
+      }
+    };
+
+    initPlayer();
 
     return () => {
+      clearTimeout(retryTimeout);
       if (hls) {
         hls.destroy();
       }
       if (videoElem) {
         videoElem.pause();
         videoElem.removeAttribute('src');
+        videoElem.onerror = null;
         videoElem.load();
       }
     };
@@ -389,75 +406,71 @@ export const ModelRoomModal: React.FC<ModelRoomModalProps> = ({
           
           {/* Main Video Stage */}
           <div ref={videoContainerRef} className="relative h-[260px] sm:h-[320px] lg:h-[400px] bg-zinc-950 flex items-center justify-center overflow-hidden shrink-0">
-            {/* Live Stream Container: HTML5 HLS Video (default) or Interactive Stream View */}
-            {streamSource === 'video' && !videoError ? (
-              <video
-                ref={videoRef}
-                autoPlay
-                muted={isMuted}
-                playsInline
-                preload="auto"
-                onError={() => {
-                  console.warn('HLS stream load error, showing fallback view');
-                  setVideoError(true);
-                }}
-                className="w-full h-full object-contain bg-black z-0 transform-gpu will-change-transform"
-              />
-            ) : (
-              /* Fallback / Embed Stage */
-              <div className="relative w-full h-full flex flex-col items-center justify-center bg-zinc-950 p-6 text-center">
-                {/* Background Preview Poster */}
-                <img
-                  src={model.snapshotUrl || model.avatarUrl}
-                  alt={model.displayName}
-                  className="absolute inset-0 w-full h-full object-cover opacity-25 blur-sm pointer-events-none"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/80 to-zinc-950/90 pointer-events-none" />
+            {/* Background Snapshot as Fallback - Always visible underneath */}
+            <img
+              src={model.snapshotUrl || model.avatarUrl}
+              alt={model.displayName}
+              className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${videoError ? 'opacity-100 blur-sm' : 'opacity-20 blur-md'}`}
+              referrerPolicy="no-referrer"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent pointer-events-none" />
 
-                <div className="relative z-20 max-w-md mx-auto flex flex-col items-center gap-4 bg-zinc-900/90 p-6 rounded-3xl border border-zinc-800 shadow-2xl backdrop-blur-md">
-                  <div className="relative">
-                    <img
-                      src={model.avatarUrl || model.snapshotUrl}
-                      alt={model.displayName}
-                      className="w-20 h-20 rounded-full object-cover ring-4 ring-rose-500/80 shadow-xl"
-                    />
-                    <span className="absolute bottom-0 right-0 w-5 h-5 rounded-full bg-emerald-500 ring-2 ring-zinc-950 flex items-center justify-center text-[10px] text-white font-bold">✓</span>
-                  </div>
+            {/* Live Stream Container: HTML5 HLS Video */}
+            <video
+              ref={videoRef}
+              autoPlay
+              muted={isMuted}
+              playsInline
+              poster={model.snapshotUrl || model.avatarUrl}
+              className={`absolute inset-0 w-full h-full object-contain z-10 transition-opacity duration-500 ${videoError ? 'opacity-0' : 'opacity-100'}`}
+              onPlay={() => setVideoError(false)}
+            />
 
-                  <div>
-                    <h3 className="text-lg font-black text-white flex items-center justify-center gap-2">
-                      <span>@{model.username}</span>
-                      <span className="text-xs bg-rose-600/90 text-white font-bold px-2 py-0.5 rounded-full uppercase">En Vivo</span>
-                    </h3>
-                    <p className="text-xs text-zinc-400 mt-1">
-                      {videoError
-                        ? 'La transmisión directa se está reconectando. Haz clic en Reintentar o abre el canal oficial.'
-                        : 'Accede a la señal HD en vivo o abre la sala oficial:'}
-                    </p>
-                  </div>
+            {/* Unobtrusive Reconnecting Overlay (when video errors out) */}
+            {videoError && (
+              <div className="absolute inset-0 z-20 flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-500">
+                <div className="relative mb-4">
+                  <img
+                    src={model.avatarUrl || model.snapshotUrl}
+                    alt={model.displayName}
+                    className="w-20 h-20 rounded-full object-cover ring-4 ring-rose-500/50 shadow-2xl"
+                    referrerPolicy="no-referrer"
+                  />
+                  <span className="absolute bottom-0 right-0 flex h-5 w-5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-5 w-5 bg-rose-500 items-center justify-center text-[10px] text-white">
+                      <RefreshCw className="w-3 h-3 animate-spin" />
+                    </span>
+                  </span>
+                </div>
+                
+                <h3 className="text-lg font-black text-white flex items-center justify-center gap-2 drop-shadow-md">
+                  <span>@{model.username}</span>
+                </h3>
+                <p className="text-xs text-zinc-300 mt-1 max-w-xs drop-shadow-md font-medium">
+                  La transmisión experimenta intermitencias. Reconectando señal automáticamente...
+                </p>
 
-                  <div className="flex flex-col sm:flex-row items-center gap-2.5 w-full">
-                    <button
-                      onClick={() => {
-                        setVideoError(false);
-                        setStreamSource('video');
-                      }}
-                      className="w-full py-2.5 px-4 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs rounded-xl transition shadow-lg shadow-rose-950/50 flex items-center justify-center gap-2"
-                    >
-                      <RefreshCw className="w-4 h-4" />
-                      <span>Reintentar HLS Live</span>
-                    </button>
-
-                    <a
-                      href={model.chatUrl || `https://stripcash.com/live/${model.username}?aff=aff_velvet_101`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-full py-2.5 px-4 bg-zinc-800 hover:bg-zinc-700 text-white font-bold text-xs rounded-xl border border-zinc-700 transition flex items-center justify-center gap-2"
-                    >
-                      <ExternalLink className="w-4 h-4 text-rose-400" />
-                      <span>Abrir en Stripchat</span>
-                    </a>
-                  </div>
+                <div className="mt-5 flex items-center gap-3">
+                  <button
+                    onClick={() => {
+                      setVideoError(false);
+                      setStreamSource('video'); // Forces re-render of HLS logic if we add dependency
+                    }}
+                    className="py-2 px-4 bg-rose-600/90 hover:bg-rose-500 text-white font-bold text-xs rounded-xl backdrop-blur-md transition shadow-lg flex items-center gap-2"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    Reintentar ahora
+                  </button>
+                  <a
+                    href={model.chatUrl || `https://stripcash.com/live/${model.username}?aff=aff_velvet_101`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="py-2 px-4 bg-zinc-800/80 hover:bg-zinc-700/80 text-white font-bold text-xs rounded-xl backdrop-blur-md border border-zinc-700/50 transition flex items-center gap-2"
+                  >
+                    <ExternalLink className="w-4 h-4 text-rose-400" />
+                    Canal Oficial
+                  </a>
                 </div>
               </div>
             )}

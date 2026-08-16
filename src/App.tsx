@@ -241,47 +241,64 @@ export default function HomePage() {
 
   // Dynamic random rotation state for compact grid & pagination
   const [shuffleSeed, setShuffleSeed] = useState<number>(0);
-  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [visibleCount, setVisibleCount] = useState<number>(24);
   const [prevFilters, setPrevFilters] = useState<FilterState>(filters);
   const ITEMS_PER_PAGE = 24;
+  const loadMoreRef = useRef<HTMLDivElement>(null);
 
   if (filters !== prevFilters) {
     setPrevFilters(filters);
-    setCurrentPage(1);
+    setVisibleCount(ITEMS_PER_PAGE);
   }
 
   const handleShuffleCompact = useCallback(() => {
     setShuffleSeed((prev) => prev + 1);
-    setCurrentPage(1); // Reset to page 1 on shuffle
+    setVisibleCount(ITEMS_PER_PAGE);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
-  // Featured Top Section (3 Top Models - only on page 1)
+  // Featured Top Section (3 Top Models)
   const featuredModels = useMemo(() => {
-    if (currentPage > 1) return [];
     return filteredModels.slice(0, 3);
-  }, [filteredModels, currentPage]);
+  }, [filteredModels]);
 
   // Remaining models for Compact Balanced Grid with random rotation
   const remainingModels = useMemo(() => {
-    const rest = currentPage === 1 ? filteredModels.slice(3) : filteredModels;
+    const rest = filteredModels.slice(3);
     if (shuffleSeed === 0) return rest;
-
     const array = [...rest];
     for (let i = array.length - 1; i > 0; i--) {
       const j = Math.floor(Math.abs(Math.sin(i + shuffleSeed * 777)) * (i + 1));
       [array[i], array[j]] = [array[j], array[i]];
     }
     return array;
-  }, [filteredModels, shuffleSeed, currentPage]);
-
-  const totalPages = Math.max(1, Math.ceil(filteredModels.length / ITEMS_PER_PAGE));
+  }, [filteredModels, shuffleSeed]);
 
   const compactModelsToDisplay = useMemo(() => {
-    // If page 1, we show 21 items in grid (since top 3 are featured). If page > 1, show ITEMS_PER_PAGE.
-    const startIdx = currentPage === 1 ? 0 : (currentPage - 1) * ITEMS_PER_PAGE - 3;
-    const limit = currentPage === 1 ? 21 : ITEMS_PER_PAGE;
-    return remainingModels.slice(startIdx, startIdx + limit);
-  }, [remainingModels, currentPage]);
+    return remainingModels.slice(0, Math.max(0, visibleCount - 3));
+  }, [remainingModels, visibleCount]);
+
+  // Infinite Scroll Observer
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !isLoading) {
+          setVisibleCount((prev) => Math.min(prev + ITEMS_PER_PAGE, filteredModels.length));
+        }
+      },
+      { threshold: 0.1, rootMargin: '400px' }
+    );
+    
+    const currentRef = loadMoreRef.current;
+    if (currentRef) {
+      observer.observe(currentRef);
+    }
+    
+    return () => {
+      if (currentRef) observer.unobserve(currentRef);
+      observer.disconnect();
+    };
+  }, [filteredModels.length, isLoading]);
 
   const favoriteModelObjects = useMemo(() => {
     return models.filter((m) => favorites.includes(m.id));
@@ -311,7 +328,7 @@ export default function HomePage() {
       <CategoryPills filters={filters} setFilters={setFilters} />
 
       {/* Section: Modelos Destacados (Vista Principal) - Replaces the old stats banner */}
-      {currentPage === 1 && featuredModels.length > 0 && (
+      {featuredModels.length > 0 && (
         <section className="bg-gradient-to-b from-zinc-950 via-zinc-900/40 to-zinc-950 border-b border-zinc-900 py-8">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
             <div className="flex items-center justify-between">
@@ -462,68 +479,12 @@ export default function HomePage() {
                   ))}
                 </div>
 
-                {/* Professional Pagination Bar */}
-                {totalPages > 1 && (
-                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-8 pb-4 border-t border-zinc-900 text-xs">
-                    <div className="text-zinc-400 font-medium">
-                      Página <strong className="text-white">{currentPage}</strong> de <strong className="text-white">{totalPages}</strong> (Total: {filteredModels.length} modelos)
-                    </div>
-
-                    <div className="flex items-center gap-1.5 flex-wrap justify-center">
-                      <button
-                        onClick={() => { setCurrentPage(1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                        disabled={currentPage === 1}
-                        className="inline-flex items-center justify-center px-3 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 disabled:opacity-40 font-bold transition text-zinc-300"
-                      >
-                        Primero
-                      </button>
-
-                      <button
-                        onClick={() => { setCurrentPage((prev) => Math.max(1, prev - 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                        disabled={currentPage === 1}
-                        className="inline-flex items-center justify-center px-3.5 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 disabled:opacity-40 font-bold transition text-zinc-300"
-                      >
-                        Anterior
-                      </button>
-
-                      {/* Page number buttons */}
-                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                        let pageNum = i + 1;
-                        if (totalPages > 5) {
-                          if (currentPage <= 3) pageNum = i + 1;
-                          else if (currentPage >= totalPages - 2) pageNum = totalPages - 4 + i;
-                          else pageNum = currentPage - 2 + i;
-                        }
-                        return (
-                          <button
-                            key={pageNum}
-                            onClick={() => { setCurrentPage(pageNum); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                            className={`inline-flex items-center justify-center w-9 h-9 rounded-xl font-bold transition border ${
-                              currentPage === pageNum
-                                ? 'bg-rose-600 border-rose-500 text-white shadow-lg shadow-rose-950/50'
-                                : 'bg-zinc-900 border-zinc-800 hover:bg-zinc-800 text-zinc-300'
-                            }`}
-                          >
-                            {pageNum}
-                          </button>
-                        );
-                      })}
-
-                      <button
-                        onClick={() => { setCurrentPage((prev) => Math.min(totalPages, prev + 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                        disabled={currentPage === totalPages}
-                        className="inline-flex items-center justify-center px-3.5 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 disabled:opacity-40 font-bold transition text-zinc-300"
-                      >
-                        Siguiente
-                      </button>
-
-                      <button
-                        onClick={() => { setCurrentPage(totalPages); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                        disabled={currentPage === totalPages}
-                        className="inline-flex items-center justify-center px-3 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 disabled:opacity-40 font-bold transition text-zinc-300"
-                      >
-                        Último
-                      </button>
+                {/* Infinite Scroll Sentinel */}
+                {visibleCount < filteredModels.length && (
+                  <div ref={loadMoreRef} className="col-span-full w-full h-24 flex items-center justify-center pt-8">
+                    <div className="flex items-center gap-2 text-zinc-500 font-medium text-sm">
+                      <div className="w-4 h-4 rounded-full border-2 border-zinc-500 border-t-transparent animate-spin"></div>
+                      Cargando más cámaras...
                     </div>
                   </div>
                 )}
