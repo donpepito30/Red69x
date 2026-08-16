@@ -17,10 +17,20 @@ const CACHE = new Map<string, { data: any[], timestamp: number }>();
 // API: /api/models
 app.get('/api/models', async (req, res) => {
   try {
-    const apiRes = await fetch('https://go.whitetrafsa.com/api/models', {
+    const targetUrl = new URL('https://go.whitetrafsa.com/api/models');
+    // Forward all query parameters
+    for (const key in req.query) {
+      targetUrl.searchParams.append(key, req.query[key] as string);
+    }
+    // Ensure limit is sufficient for frontend pagination if not specified
+    if (!targetUrl.searchParams.has('limit')) {
+      targetUrl.searchParams.set('limit', '300');
+    }
+
+    const apiRes = await fetch(targetUrl.toString(), {
       headers: {
-        'Accept': 'application/json',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+        'Accept': 'application/json, text/plain, */*',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
       }
     });
 
@@ -117,7 +127,17 @@ export default {
 
     if (url.pathname === '/api/models') {
       try {
-        const apiRes = await fetch('https://go.whitetrafsa.com/api/models', {
+        const targetUrl = new URL('https://go.whitetrafsa.com/api/models');
+        url.searchParams.forEach((value, key) => {
+          targetUrl.searchParams.append(key, value);
+        });
+        
+        // Ensure limit is sufficient for frontend pagination if not specified
+        if (!targetUrl.searchParams.has('limit')) {
+          targetUrl.searchParams.set('limit', '300');
+        }
+
+        const apiRes = await fetch(targetUrl.toString(), {
           method: 'GET',
           headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
