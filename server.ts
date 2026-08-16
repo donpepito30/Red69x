@@ -3,28 +3,8 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { GoogleGenAI } from '@google/genai';
 import { MOCK_MODELS } from './src/lib/mockModelsData.js';
-import path from 'path';
-import { fileURLToPath } from 'url';
 
 dotenv.config();
-
-const __filename = (() => {
-  try {
-    if (typeof __filename !== 'undefined') return __filename;
-    if (typeof import.meta !== 'undefined' && import.meta.url) {
-      return fileURLToPath(import.meta.url);
-    }
-  } catch (e) {}
-  return '';
-})();
-
-const __dirname = (() => {
-  try {
-    if (typeof __dirname !== 'undefined' && __dirname) return __dirname;
-    if (__filename) return path.dirname(__filename);
-  } catch (e) {}
-  return process.cwd();
-})();
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -317,17 +297,7 @@ async function setupViteAndListen() {
       appType: 'spa',
     });
     app.use(vite.middlewares);
-  } else {
-    const baseDir = (__dirname && typeof __dirname === 'string') ? __dirname : process.cwd();
-    const distPath = path.join(baseDir, 'dist');
-    app.use(express.static(distPath));
-    app.get('*all', (req, res) => {
-      const indexPath = path.join(distPath, 'index.html');
-      res.sendFile(indexPath);
-    });
-  }
-
-  if (process.env.NODE_ENV !== 'production' || process.env.RUN_LOCAL === 'true') {
+    
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`Server running on http://localhost:${PORT}`);
     });
