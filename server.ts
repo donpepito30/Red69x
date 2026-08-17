@@ -227,6 +227,10 @@ export default {
           limitVal = 300;
         }
         safeParams.set('limit', limitVal.toString());
+        
+        // REQUERIMIENTO DE SEGURIDAD: Nunca mostrar modelos offline o en shows privados.
+        // Forzamos siempre el status a 'public' para que Stripcash devuelva solo modelos en free chat.
+        safeParams.set('status', 'public');
 
         // 1. Verificar si la respuesta ya existe en la Cache API de Cloudflare
         const cacheUrl = new URL(request.url);

@@ -64,16 +64,55 @@ export default function HomePage() {
     if (!isSilent) setIsLoading(true);
     try {
       const params = new URLSearchParams();
-      if (filters.gender !== 'all') params.set('gender', filters.gender);
-      if (filters.tags.length > 0) params.set('tags', filters.tags.join(','));
+      
+      let backendTags: string[] = [];
+      let mappedGender = filters.gender;
+      let mappedLovense = filters.isLovenseOnly;
+      let mappedHd = filters.isHdOnly;
+      let mappedEthnicity = filters.ethnicity;
+      let mappedBodyType = filters.bodyType;
+
+      // Smart mapping from frontend custom tags to Stripcash backend parameters
+      filters.tags.forEach((tag) => {
+        const lowerTag = tag.toLowerCase();
+        if (lowerTag === 'latina') {
+           mappedEthnicity = 'ethnicityLatino';
+        } else if (lowerTag === 'lovense') {
+           mappedLovense = true;
+        } else if (lowerTag === 'hd 1080p' || lowerTag === 'hd') {
+           mappedHd = true;
+        } else if (lowerTag === 'pareja' || lowerTag === 'parejas') {
+           mappedGender = 'couple';
+        } else if (lowerTag === 'milf') {
+           backendTags.push('milf');
+        } else if (lowerTag === 'petite') {
+           mappedBodyType = 'bodyTypePetite';
+        } else if (lowerTag === 'vr cams' || lowerTag === 'vr') {
+           backendTags.push('vr');
+        } else if (lowerTag === 'tatuajes') {
+           backendTags.push('tattoo');
+        } else if (lowerTag === 'cosplay') {
+           backendTags.push('cosplay');
+        } else {
+           backendTags.push(tag);
+        }
+      });
+
+      if (mappedGender !== 'all') params.set('gender', mappedGender);
+      if (backendTags.length > 0) params.set('tags', backendTags.join(','));
       if (filters.search) params.set('search', filters.search);
-      if (filters.status !== 'all') params.set('status', filters.status);
-      if (filters.isLovenseOnly) params.set('isLovenseOnly', 'true');
-      if (filters.isHdOnly) params.set('isHdOnly', 'true');
+      
+      // Strict rule: DO NOT show offline models or models in private shows.
+      // Stripcash uses 'public' to denote models that are online and in free chat.
+      params.set('status', 'public');
+
+      if (mappedLovense) params.set('isLovenseOnly', 'true');
+      if (mappedHd) params.set('isHdOnly', 'true');
       if (filters.language !== 'all') params.set('language', filters.language);
-      if (filters.ethnicity !== 'all') params.set('profileEthnicity', filters.ethnicity);
+      if (mappedEthnicity !== 'all') params.set('profileEthnicity', mappedEthnicity);
       if (filters.hairColor !== 'all') params.set('profileHairColor', filters.hairColor);
-      if (filters.bodyType !== 'all') params.set('profileBodyType', filters.bodyType);
+      if (mappedBodyType !== 'all') params.set('profileBodyType', mappedBodyType);
+      
       params.set('sort', filters.sortBy);
       params.set('limit', '300');
 
