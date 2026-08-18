@@ -82,6 +82,14 @@ export const ModelRoomModal: React.FC<ModelRoomModalProps> = ({
     title: model.goalTitle || 'Meta de Baile Sensual',
   });
 
+  // Smart Cropping Engine (Encuadre Inteligente)
+  const isVertical = model.broadcastMobile || (model.streamWidth && model.streamHeight && model.streamHeight > model.streamWidth) || false;
+  // If vertical video: on mobile use cover (fills vertically perfectly), on desktop use contain (to prevent head chopping)
+  // If horizontal video: on mobile use contain (to prevent extreme left/right chopping), on desktop use cover (fills horizontally perfectly)
+  const videoObjectFitClass = isVertical
+    ? "object-cover sm:object-contain"
+    : "object-contain sm:object-cover";
+
   const [visibleCount, setVisibleCount] = useState<number>(12);
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
@@ -433,23 +441,23 @@ export const ModelRoomModal: React.FC<ModelRoomModalProps> = ({
           
           {/* Main Video Stage */}
           <div ref={videoContainerRef} className="relative h-[260px] sm:h-[320px] lg:h-[400px] bg-zinc-950 flex items-center justify-center overflow-hidden shrink-0">
-            {/* Background Snapshot as Fallback - Always visible underneath */}
+            {/* Blurred Background Snapshot - Acts as dynamic ambient letterbox filler */}
             <img
               src={model.snapshotUrl || model.avatarUrl}
               alt={model.displayName}
-              className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${videoError ? 'opacity-100 blur-sm' : 'opacity-20 blur-md'}`}
+              className={`absolute inset-0 w-full h-full object-cover scale-110 transition-opacity duration-700 ${videoError ? 'opacity-100 blur-sm' : 'opacity-40 blur-xl'}`}
               referrerPolicy="no-referrer"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent pointer-events-none" />
+            <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/20 to-transparent pointer-events-none" />
 
-            {/* Live Stream Container: HTML5 HLS Video */}
+            {/* Live Stream Container: HTML5 HLS Video with Smart Cropping */}
             <video
               ref={videoRef}
               autoPlay
               muted={isMuted}
               playsInline
               poster={model.snapshotUrl || model.avatarUrl}
-              className={`absolute inset-0 w-full h-full object-contain z-10 transition-opacity duration-500 ${videoError ? 'opacity-0' : 'opacity-100'}`}
+              className={`absolute inset-0 w-full h-full ${videoObjectFitClass} z-10 transition-opacity duration-500 ${videoError ? 'opacity-0' : 'opacity-100'}`}
               onPlay={() => setVideoError(false)}
             />
 

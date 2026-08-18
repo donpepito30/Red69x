@@ -83,6 +83,9 @@ app.get('/api/models', async (req, res) => {
       isHd: !!(m.isHd || m.is_hd),
       isVr: !!(m.isVr || m.is_vr),
       isLovense: !!(m.isLovense || m.is_lovense),
+      broadcastMobile: !!m.broadcastMobile,
+      streamWidth: m.stream?.width || 0,
+      streamHeight: m.stream?.height || 0,
       // Fallbacks for older components
       avatar: m.avatarUrl || m.avatar_url || `https://img.strpst.com/images/avatars/${m.username}.jpg`,
       thumbnail: m.snapshotUrl || m.snapshot_url || m.popularSnapshotUrl || `https://img.strpst.com/images/vthumbs/${m.username}.jpg`,
@@ -320,6 +323,9 @@ export default {
           isHd: !!(m.isHd || m.is_hd),
           isVr: !!(m.isVr || m.is_vr),
           isLovense: !!(m.isLovense || m.is_lovense),
+          broadcastMobile: !!m.broadcastMobile,
+          streamWidth: m.stream?.width || 0,
+          streamHeight: m.stream?.height || 0,
           // Fallbacks for older components
           avatar: m.avatarUrl || m.avatar_url || `https://img.strpst.com/images/avatars/${m.username}.jpg`,
           thumbnail: m.snapshotUrl || m.snapshot_url || m.popularSnapshotUrl || `https://img.strpst.com/images/vthumbs/${m.username}.jpg`,

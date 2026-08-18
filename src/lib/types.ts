@@ -27,6 +27,9 @@ export interface Model {
     '480p'?: string;
     '240p'?: string;
   };
+  broadcastMobile?: boolean;
+  streamWidth?: number;
+  streamHeight?: number;
   iframeEmbedUrl?: string;
   viewersCount: number;
   rating: number;
