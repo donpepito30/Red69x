@@ -968,36 +968,48 @@ export const ModelRoomModal: React.FC<ModelRoomModalProps> = ({
         </div>
       </div>
 
-      {/* BOTTOM SECTION: Infinite Scroll Grid */}
+      {/* BOTTOM SECTION: Infinite Horizontal Scroll Grid */}
       <div className="bg-zinc-950 p-4 sm:p-6 border-t border-zinc-900 shrink-0">
         <h3 className="text-sm font-black text-white uppercase tracking-wider mb-4 flex items-center gap-2">
            <Flame className="w-4 h-4 text-rose-500" /> Sigue Explorando Modelos
         </h3>
         
         {visibleModels.length > 0 ? (
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
-            {visibleModels.map((m) => (
-              <CompactModelCard
-                key={m.id}
-                model={m}
-                isFavorite={false}
-                onToggleFavorite={onToggleFavorite}
-                onSelectModel={onSelectModel || (() => {})}
-              />
-            ))}
+          <div className="relative w-full">
+            <div 
+              className="grid gap-3 overflow-x-auto snap-x snap-mandatory pb-4 no-scrollbar"
+              style={{
+                gridTemplateRows: "repeat(2, minmax(0, 1fr))",
+                gridAutoFlow: "column",
+                gridAutoColumns: "calc(50% - 0.375rem)"
+              }}
+            >
+              {visibleModels.map((m) => (
+                <div key={m.id} className="snap-start w-full h-full">
+                  <CompactModelCard
+                    model={m}
+                    isFavorite={false}
+                    onToggleFavorite={onToggleFavorite}
+                    onSelectModel={onSelectModel || (() => {})}
+                  />
+                </div>
+              ))}
+              
+              {/* Infinite Scroll Sentinel (Horizontal) */}
+              {visibleCount < gridModels.length && (
+                <div 
+                  ref={loadMoreRef} 
+                  className="snap-start flex flex-col items-center justify-center h-full min-w-[120px] bg-zinc-900/40 rounded-xl border border-zinc-800/50" 
+                  style={{ gridRow: "1 / span 2" }}
+                >
+                  <div className="w-6 h-6 rounded-full border-2 border-rose-500 border-t-transparent animate-spin mb-2"></div>
+                  <span className="text-xs text-zinc-500 font-bold uppercase tracking-wider text-center">Cargando<br/>Más...</span>
+                </div>
+              )}
+            </div>
           </div>
         ) : (
           <p className="text-xs text-zinc-500">No hay más modelos disponibles por el momento.</p>
-        )}
-        
-        {/* Infinite Scroll Sentinel */}
-        {visibleCount < gridModels.length && (
-          <div ref={loadMoreRef} className="w-full h-24 flex items-center justify-center pt-8">
-            <div className="flex items-center gap-2 text-zinc-500 font-medium text-sm">
-              <div className="w-4 h-4 rounded-full border-2 border-zinc-500 border-t-transparent animate-spin"></div>
-              Cargando más cámaras...
-            </div>
-          </div>
         )}
       </div>
 

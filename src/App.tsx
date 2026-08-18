@@ -501,6 +501,7 @@ export default function HomePage() {
       {/* Model Room Stream Overlay Modal */}
       {selectedModel && (
         <ModelRoomModal
+          key={selectedModel.id}
           model={selectedModel}
           onClose={() => setSelectedModel(null)}
           userTokens={userTokens}
