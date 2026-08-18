@@ -219,62 +219,26 @@ export default function HomePage() {
   const filteredModels = useMemo(() => {
     return models
       .filter((m) => {
-        // Gender
-        if (filters.gender !== 'all' && m.gender !== filters.gender) return false;
-
-        // Tags & Category Pills Filtering
-        if (filters.tags.length > 0) {
-          const hasTag = filters.tags.some((t) => {
-            const tagLower = t.toLowerCase();
-            // Direct tag match in model tags
-            if (m.tags.some((mTag) => mTag.toLowerCase().includes(tagLower))) return true;
-
-            // Smart domain category matching
-            if (tagLower === 'latina') {
-              return (
-                m.ethnicity.toLowerCase().includes('latin') ||
-                ['colombia', 'mexico', 'venezuela', 'argentina', 'spain', 'brazil', 'chile', 'peru', 'latina'].some((c) =>
-                  m.country.toLowerCase().includes(c)
-                )
-              );
-            }
-            if (tagLower === 'lovense') return m.isLovense;
-            if (tagLower === 'hd 1080p' || tagLower === 'hd') return m.isHd;
-            if (tagLower === 'vr cams' || tagLower === 'vr') return m.isVr;
-            if (tagLower === 'pareja' || tagLower === 'parejas') return m.gender === 'couple';
-            if (tagLower === 'milf') return m.age >= 30;
-            if (tagLower === 'petite') return m.bodyType.toLowerCase().includes('petite') || m.tags.some((mTag) => mTag.toLowerCase().includes('small'));
-            if (tagLower === 'tatuajes') return m.tags.some((mTag) => mTag.toLowerCase().includes('tattoo') || mTag.toLowerCase().includes('ink'));
-            return false;
-          });
-          if (!hasTag) return false;
-        }
-
-        // Search Query
+        // Search Query (Búsqueda de texto manual por el usuario)
         if (filters.search) {
           const q = filters.search.toLowerCase();
-          const matchName = m.displayName.toLowerCase().includes(q) || m.username.toLowerCase().includes(q);
-          const matchCountry = m.country.toLowerCase().includes(q);
-          const matchTopic = m.topic.toLowerCase().includes(q);
+          const matchName = (m.displayName || '').toLowerCase().includes(q) || (m.username || '').toLowerCase().includes(q);
+          const matchCountry = (m.country || '').toLowerCase().includes(q);
+          const matchTopic = (m.topic || '').toLowerCase().includes(q);
           if (!matchName && !matchCountry && !matchTopic) return false;
         }
 
-        // Special Toggles
-        if (filters.isLovenseOnly && !m.isLovense) return false;
-        if (filters.isHdOnly && !m.isHd) return false;
-
-        // Language
-        if (filters.language !== 'all') {
-          if (!m.languages.includes(filters.language)) return false;
-        }
-
+        // Ya NO filtramos manualmente por 'tags', 'gender', 'lovense', 'hd', 'ethnicity', etc.
+        // ¿Por qué? Porque el Backend (server.ts / Stripcash API) YA HIZO ESE TRABAJO.
+        // Si el usuario tocó "Latina", la API SOLO devolvió modelos latinas.
+        // Dejar que pasen directamente evita conflictos, crashes por "undefined" y pantallas en blanco.
         return true;
       })
       .sort((a, b) => {
         if (filters.sortBy === 'rating') return b.rating - a.rating;
         if (filters.sortBy === 'rank') return a.rank - b.rank;
         if (filters.sortBy === 'tokens') return a.tokensPerMin - b.tokensPerMin;
-        return b.viewersCount - a.viewersCount;
+        return (b.viewersCount || 0) - (a.viewersCount || 0);
       });
   }, [models, filters]);
 

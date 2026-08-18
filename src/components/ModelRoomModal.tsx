@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Hls from 'hls.js';
 import { Model, ChatMessage, TipOption } from '@/lib/types';
 import { INITIAL_CHAT_MESSAGES } from '@/lib/mockModelsData';
+import { CompactModelCard } from './CompactModelCard';
 import {
   X,
   Send,
@@ -80,6 +81,27 @@ export const ModelRoomModal: React.FC<ModelRoomModalProps> = ({
     target: model.goalTarget || 1000,
     title: model.goalTitle || 'Meta de Baile Sensual',
   });
+
+  const [visibleCount, setVisibleCount] = useState<number>(12);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setVisibleCount((prev) => Math.min(prev + 12, models.length));
+        }
+      },
+      { threshold: 0.1, rootMargin: '100px' }
+    );
+    if (loadMoreRef.current) {
+      observer.observe(loadMoreRef.current);
+    }
+    return () => observer.disconnect();
+  }, [models.length]);
+
+  const gridModels = React.useMemo(() => models.filter((m) => m.id !== model.id), [models, model.id]);
+  const visibleModels = gridModels.slice(0, visibleCount);
 
   const relatedModels = React.useMemo(() => {
     return models
@@ -389,20 +411,25 @@ export const ModelRoomModal: React.FC<ModelRoomModalProps> = ({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="bg-zinc-950 border border-zinc-800 md:rounded-3xl w-full max-w-6xl h-full md:h-[90vh] flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden shadow-2xl relative cursor-default"
+        className="bg-zinc-950 border border-zinc-800 md:rounded-3xl w-full max-w-6xl flex flex-col shadow-2xl relative cursor-default md:my-auto overflow-hidden h-full md:h-[90vh]"
       >
         
         {/* Close Button */}
         <button
           onClick={onClose}
           className="absolute top-4 right-4 z-50 p-2.5 rounded-full bg-zinc-900/80 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-700 transition"
+          style={{ zIndex: 60 }}
           title="Cerrar sala"
         >
           <X className="w-5 h-5" />
         </button>
 
-        {/* LEFT COLUMN: Video Stream & Player Controls */}
-        <div className="lg:w-7/12 xl:w-2/3 bg-black flex flex-col lg:overflow-y-auto relative border-b lg:border-b-0 lg:border-r border-zinc-800/80">
+        <div className="flex-1 overflow-y-auto w-full no-scrollbar relative flex flex-col">
+          {/* Top Section: Split Layout */}
+          <div className="flex flex-col lg:flex-row w-full shrink-0" style={{ minHeight: '100%' }}>
+            
+            {/* LEFT COLUMN: Video Stream & Player Controls */}
+            <div className="lg:w-7/12 xl:w-2/3 bg-black flex flex-col relative border-b lg:border-b-0 lg:border-r border-zinc-800/80">
           
           {/* Main Video Stage */}
           <div ref={videoContainerRef} className="relative h-[260px] sm:h-[320px] lg:h-[400px] bg-zinc-950 flex items-center justify-center overflow-hidden shrink-0">
@@ -938,10 +965,44 @@ export const ModelRoomModal: React.FC<ModelRoomModalProps> = ({
 
             </div>
           )}
-
         </div>
+      </div>
+
+      {/* BOTTOM SECTION: Infinite Scroll Grid */}
+      <div className="bg-zinc-950 p-4 sm:p-6 border-t border-zinc-900 shrink-0">
+        <h3 className="text-sm font-black text-white uppercase tracking-wider mb-4 flex items-center gap-2">
+           <Flame className="w-4 h-4 text-rose-500" /> Sigue Explorando Modelos
+        </h3>
+        
+        {visibleModels.length > 0 ? (
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
+            {visibleModels.map((m) => (
+              <CompactModelCard
+                key={m.id}
+                model={m}
+                isFavorite={false}
+                onToggleFavorite={onToggleFavorite}
+                onSelectModel={onSelectModel || (() => {})}
+              />
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-zinc-500">No hay más modelos disponibles por el momento.</p>
+        )}
+        
+        {/* Infinite Scroll Sentinel */}
+        {visibleCount < gridModels.length && (
+          <div ref={loadMoreRef} className="w-full h-24 flex items-center justify-center pt-8">
+            <div className="flex items-center gap-2 text-zinc-500 font-medium text-sm">
+              <div className="w-4 h-4 rounded-full border-2 border-zinc-500 border-t-transparent animate-spin"></div>
+              Cargando más cámaras...
+            </div>
+          </div>
+        )}
+      </div>
 
       </div>
+    </div>
 
       {/* PRIVATE SHOW MODAL CONFIRMATION */}
       {showPrivateModal && (
