@@ -21,7 +21,14 @@ export const CompactModelCard: React.FC<CompactModelCardProps> = memo(({
   const { triggerAd, isBlurred } = useAd();
   return (
     <div
-      onClick={() => triggerAd(model)}
+      data-model-username={model.username}
+      onClick={() => {
+        if (isBlurred) {
+          triggerAd(model);
+        } else {
+          onSelectModel(model);
+        }
+      }}
       className="group bg-zinc-900/80 hover:bg-zinc-900 border border-zinc-800/80 rounded-xl overflow-hidden hover:border-rose-500/50 hover:shadow-xl hover:shadow-rose-950/20 transition-all duration-200 cursor-pointer flex flex-col relative transform-gpu"
     >
       {/* Media Snapshot */}

@@ -416,10 +416,12 @@ export const ModelRoomModal: React.FC<ModelRoomModalProps> = ({
 
   return (
     <div
+      data-model-username={model.username}
       onClick={onClose}
       className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-0 md:p-6 overflow-y-auto cursor-pointer"
     >
       <div
+        data-model-username={model.username}
         onClick={(e) => e.stopPropagation()}
         className="bg-zinc-950 border border-zinc-800 md:rounded-3xl w-full max-w-6xl flex flex-col shadow-2xl relative cursor-default md:my-auto overflow-hidden h-full md:h-[90vh]"
       >

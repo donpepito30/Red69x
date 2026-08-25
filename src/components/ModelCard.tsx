@@ -106,7 +106,14 @@ export const ModelCard: React.FC<ModelCardProps> = memo(({
   return (
     <div
       ref={cardRef}
-      onClick={() => triggerAd(model)}
+      data-model-username={model.username}
+      onClick={() => {
+        if (isBlurred) {
+          triggerAd(model);
+        } else {
+          onSelectModel(model);
+        }
+      }}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       className="group bg-zinc-900/90 border border-zinc-800/80 rounded-2xl overflow-hidden hover:border-rose-500/50 hover:shadow-2xl hover:shadow-rose-950/20 transition-all duration-200 cursor-pointer flex flex-col relative transform-gpu"
