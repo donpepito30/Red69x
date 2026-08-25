@@ -10,6 +10,7 @@ import { CompactModelCard } from '@/components/CompactModelCard';
 import { ModelRoomModal } from '@/components/ModelRoomModal';
 import { FilterDrawer } from '@/components/FilterDrawer';
 import { TokenPurchaseModal } from '@/components/TokenPurchaseModal';
+import { useAd } from '@/context/AdContext';
 import {
   Flame,
   Radio,
@@ -30,6 +31,7 @@ import {
 } from 'lucide-react';
 
 export default function HomePage() {
+  const { isBlurred, triggerAd } = useAd();
   const [models, setModels] = useState<Model[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [lastRefreshed, setLastRefreshed] = useState<string>('');

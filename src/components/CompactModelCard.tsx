@@ -3,6 +3,7 @@
 import React, { memo } from 'react';
 import { Model } from '@/lib/types';
 import { Eye, Heart, Zap, Play } from 'lucide-react';
+import { useAd } from '@/context/AdContext';
 
 interface CompactModelCardProps {
   model: Model;
@@ -17,9 +18,10 @@ export const CompactModelCard: React.FC<CompactModelCardProps> = memo(({
   onToggleFavorite,
   onSelectModel,
 }) => {
+  const { triggerAd, isBlurred } = useAd();
   return (
     <div
-      onClick={() => onSelectModel(model)}
+      onClick={() => triggerAd(model)}
       className="group bg-zinc-900/80 hover:bg-zinc-900 border border-zinc-800/80 rounded-xl overflow-hidden hover:border-rose-500/50 hover:shadow-xl hover:shadow-rose-950/20 transition-all duration-200 cursor-pointer flex flex-col relative transform-gpu"
     >
       {/* Media Snapshot */}
@@ -29,8 +31,31 @@ export const CompactModelCard: React.FC<CompactModelCardProps> = memo(({
           alt={model.displayName}
           loading="lazy"
           decoding="async"
-          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+          className={`w-full h-full object-cover transition-all duration-300 group-hover:scale-105 ${isBlurred ? 'blur-xl opacity-75' : ''}`}
         />
+
+        {/* Adsterra Lock Overlay inside compact card */}
+        {isBlurred && (
+          <div className="absolute inset-0 bg-black/45 z-10 flex flex-col items-center justify-center p-2 text-center select-none pointer-events-none animate-in fade-in duration-300">
+            {/* Pulsing Red Lock Icon */}
+            <div className="w-8 h-8 rounded-full bg-red-500/20 border border-red-500/60 flex items-center justify-center mb-0.5 animate-pulse shadow-md shadow-red-950/40">
+              <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                viewBox="0 0 24 24" 
+                fill="none" 
+                stroke="currentColor" 
+                strokeWidth="2.5" 
+                className="w-4 h-4 text-red-500"
+              >
+                <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg>
+            </div>
+            <span className="text-white font-black text-[9px] tracking-wider uppercase drop-shadow-sm">
+              BLOQUEADO
+            </span>
+          </div>
+        )}
 
         {/* Gradient Overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-transparent to-black/40 pointer-events-none" />

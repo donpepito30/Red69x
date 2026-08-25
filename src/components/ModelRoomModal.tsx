@@ -5,6 +5,7 @@ import Hls from 'hls.js';
 import { Model, ChatMessage, TipOption } from '@/lib/types';
 import { INITIAL_CHAT_MESSAGES } from '@/lib/mockModelsData';
 import { CompactModelCard } from './CompactModelCard';
+import { useAd } from '@/context/AdContext';
 import {
   X,
   Send,
@@ -53,6 +54,7 @@ export const ModelRoomModal: React.FC<ModelRoomModalProps> = ({
   models,
   onSelectModel,
 }) => {
+  const { triggerAd, isBlurred } = useAd();
   const [activeTab, setActiveTab] = useState<'chat' | 'tips' | 'bio' | 'gallery'>('chat');
   const [messages, setMessages] = useState<ChatMessage[]>(INITIAL_CHAT_MESSAGES);
   const [inputText, setInputText] = useState('');
@@ -439,13 +441,13 @@ export const ModelRoomModal: React.FC<ModelRoomModalProps> = ({
             {/* LEFT COLUMN: Video Stream & Player Controls */}
             <div className="lg:w-7/12 xl:w-2/3 bg-black flex flex-col relative border-b lg:border-b-0 lg:border-r border-zinc-800/80">
           
-          {/* Main Video Stage */}
+           {/* Main Video Stage */}
           <div ref={videoContainerRef} className="relative h-[260px] sm:h-[320px] lg:h-[400px] bg-zinc-950 flex items-center justify-center overflow-hidden shrink-0">
             {/* Blurred Background Snapshot - Acts as dynamic ambient letterbox filler */}
             <img
               src={model.snapshotUrl || model.avatarUrl}
               alt={model.displayName}
-              className={`absolute inset-0 w-full h-full object-cover scale-110 transition-opacity duration-700 ${videoError ? 'opacity-100 blur-sm' : 'opacity-40 blur-xl'}`}
+              className={`absolute inset-0 w-full h-full object-cover scale-110 transition-opacity duration-700 ${videoError ? 'opacity-100 blur-sm' : 'opacity-40 blur-xl'} ${isBlurred ? 'blur-2xl opacity-75' : ''}`}
               referrerPolicy="no-referrer"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/20 to-transparent pointer-events-none" />
@@ -457,9 +459,35 @@ export const ModelRoomModal: React.FC<ModelRoomModalProps> = ({
               muted={isMuted}
               playsInline
               poster={model.snapshotUrl || model.avatarUrl}
-              className={`absolute inset-0 w-full h-full ${videoObjectFitClass} z-10 transition-opacity duration-500 ${videoError ? 'opacity-0' : 'opacity-100'}`}
+              className={`absolute inset-0 w-full h-full ${videoObjectFitClass} z-10 transition-opacity duration-500 ${videoError ? 'opacity-0' : 'opacity-100'} ${isBlurred ? 'blur-2xl opacity-75' : ''}`}
               onPlay={() => setVideoError(false)}
             />
+
+            {/* Overlay red lock directly on the blurred stream player */}
+            {isBlurred && (
+              <div className="absolute inset-0 z-30 bg-black/40 flex flex-col items-center justify-center p-4 text-center cursor-pointer animate-in fade-in duration-300">
+                {/* Pulsing Red Lock Icon */}
+                <div className="w-16 h-16 rounded-full bg-red-500/10 border-2 border-red-500/60 flex items-center justify-center mb-3 animate-pulse">
+                  <svg 
+                    xmlns="http://www.w3.org/2000/svg" 
+                    viewBox="0 0 24 24" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    strokeWidth="2.5" 
+                    className="w-8 h-8 text-red-500"
+                  >
+                    <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                  </svg>
+                </div>
+                <span className="text-white font-black text-sm tracking-widest uppercase mb-1 drop-shadow-md">
+                  Contenido Protegido
+                </span>
+                <span className="text-rose-400 font-extrabold text-[11px] uppercase bg-rose-950/70 border border-rose-500/30 px-3 py-1 rounded-full animate-bounce">
+                  Clic aquí para Desbloquear Vivo HD
+                </span>
+              </div>
+            )}
 
             {/* Unobtrusive Reconnecting Overlay (when video errors out) */}
             {videoError && (
@@ -575,7 +603,7 @@ export const ModelRoomModal: React.FC<ModelRoomModalProps> = ({
                   {relatedModels.map((m) => (
                     <button
                       key={m.id}
-                      onClick={() => onSelectModel?.(m)}
+                      onClick={() => triggerAd(m)}
                       className="flex items-center gap-2 bg-zinc-950 hover:bg-zinc-800/80 border border-zinc-800/80 p-1.5 rounded-xl shrink-0 transition text-left group cursor-pointer"
                     >
                       <div className="relative w-8 h-8 rounded-full overflow-hidden border border-zinc-700 shrink-0">
@@ -998,7 +1026,7 @@ export const ModelRoomModal: React.FC<ModelRoomModalProps> = ({
                     model={m}
                     isFavorite={false}
                     onToggleFavorite={onToggleFavorite}
-                    onSelectModel={onSelectModel || (() => {})}
+                    onSelectModel={triggerAd}
                   />
                 </div>
               ))}

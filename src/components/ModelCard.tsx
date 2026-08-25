@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect, memo } from 'react';
 import { Model } from '@/lib/types';
 import { Eye, Heart, Zap, Play, Volume2, VolumeX } from 'lucide-react';
 import { hlsManager } from '@/lib/hlsManager';
+import { useAd } from '@/context/AdContext';
 
 interface ModelCardProps {
   model: Model;
@@ -18,6 +19,7 @@ export const ModelCard: React.FC<ModelCardProps> = memo(({
   onToggleFavorite,
   onSelectModel,
 }) => {
+  const { triggerAd, isBlurred } = useAd();
   const [isHovered, setIsHovered] = useState(false);
   const [isActive, setIsActive] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
@@ -104,7 +106,7 @@ export const ModelCard: React.FC<ModelCardProps> = memo(({
   return (
     <div
       ref={cardRef}
-      onClick={() => onSelectModel(model)}
+      onClick={() => triggerAd(model)}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       className="group bg-zinc-900/90 border border-zinc-800/80 rounded-2xl overflow-hidden hover:border-rose-500/50 hover:shadow-2xl hover:shadow-rose-950/20 transition-all duration-200 cursor-pointer flex flex-col relative transform-gpu"
@@ -117,9 +119,9 @@ export const ModelCard: React.FC<ModelCardProps> = memo(({
           alt={model.displayName}
           loading="lazy"
           decoding="async"
-          className={`w-full h-full object-cover transition-opacity duration-300 group-hover:scale-105 ${
+          className={`w-full h-full object-cover transition-all duration-300 group-hover:scale-105 ${
             isActive && !hasVideoError ? 'opacity-0' : 'opacity-100'
-          }`}
+          } ${isBlurred ? 'blur-xl opacity-75' : ''}`}
         />
 
         {/* Video Stream Preview ONLY mounted when active */}
@@ -129,8 +131,34 @@ export const ModelCard: React.FC<ModelCardProps> = memo(({
             muted={isMuted}
             loop
             playsInline
-            className="absolute inset-0 w-full h-full object-cover z-0"
+            className={`absolute inset-0 w-full h-full object-cover z-0 transition-all duration-300 ${isBlurred ? 'blur-xl opacity-75' : ''}`}
           />
+        )}
+
+        {/* Adsterra Lock Overlay inside card media */}
+        {isBlurred && (
+          <div className="absolute inset-0 bg-black/45 z-10 flex flex-col items-center justify-center p-2 text-center select-none pointer-events-none animate-in fade-in duration-300">
+            {/* Pulsing Red Lock Icon */}
+            <div className="w-10 h-10 rounded-full bg-red-500/20 border border-red-500/60 flex items-center justify-center mb-1 animate-pulse shadow-md shadow-red-950/40">
+              <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                viewBox="0 0 24 24" 
+                fill="none" 
+                stroke="currentColor" 
+                strokeWidth="2.5" 
+                className="w-5 h-5 text-red-500"
+              >
+                <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg>
+            </div>
+            <span className="text-white font-black text-[10px] tracking-wider uppercase drop-shadow-sm">
+              SALA BLOQUEADA
+            </span>
+            <span className="text-[9px] text-zinc-300 font-bold mt-0.5">
+              Clic para Desbloquear
+            </span>
+          </div>
         )}
 
         {/* Dark Vignette Overlay */}
