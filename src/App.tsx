@@ -1,7 +1,7 @@
 
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { fetchModels } from '@/services/api';
+import { fetchModels, getCachedModels } from '@/services/api';
 import { Model, FilterState } from '@/lib/types';
 import { Navbar } from '@/components/Navbar';
 import { CategoryPills } from '@/components/CategoryPills';
@@ -32,14 +32,15 @@ import {
 
 export default function HomePage() {
   const { isBlurred, triggerAd } = useAd();
-  const [models, setModels] = useState<Model[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [models, setModels] = useState<Model[]>(() => {
+    return getCachedModels('') || [];
+  });
+  const [isLoading, setIsLoading] = useState<boolean>(() => models.length === 0);
   const [lastRefreshed, setLastRefreshed] = useState<string>('');
   const [selectedModel, setSelectedModel] = useState<Model | null>(null);
   const [userTokens, setUserTokens] = useState<number>(250);
   const [favorites, setFavorites] = useState<string[]>([]);
   const [isMounted, setIsMounted] = useState<boolean>(false);
-  const hasAutoSelectedRef = useRef(false);
 
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
   const [isBuyTokensOpen, setIsBuyTokensOpen] = useState(false);
@@ -63,67 +64,75 @@ export default function HomePage() {
 
   // Fetch real live models from API route
   const fetchLiveModels = useCallback(async (isSilent = false) => {
-    if (!isSilent) setIsLoading(true);
+    const params = new URLSearchParams();
+    
+    let backendTags: string[] = [];
+    let mappedGender = filters.gender;
+    let mappedLovense = filters.isLovenseOnly;
+    let mappedHd = filters.isHdOnly;
+    let mappedEthnicity = filters.ethnicity;
+    let mappedBodyType = filters.bodyType;
+
+    // Smart mapping from frontend custom tags to Stripcash backend parameters
+    filters.tags.forEach((tag) => {
+      const lowerTag = tag.toLowerCase();
+      if (lowerTag === 'latina') {
+         mappedEthnicity = 'ethnicityLatino';
+      } else if (lowerTag === 'lovense') {
+         mappedLovense = true;
+      } else if (lowerTag === 'hd 1080p' || lowerTag === 'hd') {
+         mappedHd = true;
+      } else if (lowerTag === 'pareja' || lowerTag === 'parejas') {
+         mappedGender = 'couple';
+      } else if (lowerTag === 'milf') {
+         backendTags.push('milf');
+      } else if (lowerTag === 'petite') {
+         mappedBodyType = 'bodyTypePetite';
+      } else if (lowerTag === 'vr cams' || lowerTag === 'vr') {
+         backendTags.push('vr');
+      } else if (lowerTag === 'tatuajes') {
+         backendTags.push('tattoo');
+      } else if (lowerTag === 'cosplay') {
+         backendTags.push('cosplay');
+      } else {
+         backendTags.push(tag);
+      }
+    });
+
+    if (mappedGender !== 'all') params.set('gender', mappedGender);
+    if (backendTags.length > 0) params.set('tags', backendTags.join(','));
+    if (filters.search) params.set('search', filters.search);
+    
+    // Strict rule: DO NOT show offline models or models in private shows.
+    params.set('status', 'public');
+
+    if (mappedLovense) params.set('isLovenseOnly', 'true');
+    if (mappedHd) params.set('isHdOnly', 'true');
+    if (filters.language !== 'all') params.set('language', filters.language);
+    if (mappedEthnicity !== 'all') params.set('profileEthnicity', mappedEthnicity);
+    if (filters.hairColor !== 'all') params.set('profileHairColor', filters.hairColor);
+    if (mappedBodyType !== 'all') params.set('profileBodyType', mappedBodyType);
+    
+    params.set('sort', filters.sortBy);
+    params.set('limit', '120');
+
+    const paramsKey = params.toString();
+    const cached = getCachedModels(paramsKey);
+    if (cached && cached.length > 0) {
+      setModels(cached);
+      setIsLoading(false);
+    } else if (!isSilent) {
+      setIsLoading(true);
+    }
+
     try {
-      const params = new URLSearchParams();
-      
-      let backendTags: string[] = [];
-      let mappedGender = filters.gender;
-      let mappedLovense = filters.isLovenseOnly;
-      let mappedHd = filters.isHdOnly;
-      let mappedEthnicity = filters.ethnicity;
-      let mappedBodyType = filters.bodyType;
-
-      // Smart mapping from frontend custom tags to Stripcash backend parameters
-      filters.tags.forEach((tag) => {
-        const lowerTag = tag.toLowerCase();
-        if (lowerTag === 'latina') {
-           mappedEthnicity = 'ethnicityLatino';
-        } else if (lowerTag === 'lovense') {
-           mappedLovense = true;
-        } else if (lowerTag === 'hd 1080p' || lowerTag === 'hd') {
-           mappedHd = true;
-        } else if (lowerTag === 'pareja' || lowerTag === 'parejas') {
-           mappedGender = 'couple';
-        } else if (lowerTag === 'milf') {
-           backendTags.push('milf');
-        } else if (lowerTag === 'petite') {
-           mappedBodyType = 'bodyTypePetite';
-        } else if (lowerTag === 'vr cams' || lowerTag === 'vr') {
-           backendTags.push('vr');
-        } else if (lowerTag === 'tatuajes') {
-           backendTags.push('tattoo');
-        } else if (lowerTag === 'cosplay') {
-           backendTags.push('cosplay');
-        } else {
-           backendTags.push(tag);
-        }
-      });
-
-      if (mappedGender !== 'all') params.set('gender', mappedGender);
-      if (backendTags.length > 0) params.set('tags', backendTags.join(','));
-      if (filters.search) params.set('search', filters.search);
-      
-      // Strict rule: DO NOT show offline models or models in private shows.
-      // Stripcash uses 'public' to denote models that are online and in free chat.
-      params.set('status', 'public');
-
-      if (mappedLovense) params.set('isLovenseOnly', 'true');
-      if (mappedHd) params.set('isHdOnly', 'true');
-      if (filters.language !== 'all') params.set('language', filters.language);
-      if (mappedEthnicity !== 'all') params.set('profileEthnicity', mappedEthnicity);
-      if (filters.hairColor !== 'all') params.set('profileHairColor', filters.hairColor);
-      if (mappedBodyType !== 'all') params.set('profileBodyType', mappedBodyType);
-      
-      params.set('sort', filters.sortBy);
-      params.set('limit', '300');
-
-      const fetchedModels = await fetchModels(params.toString());
-      setModels(fetchedModels);
+      const fetchedModels = await fetchModels(paramsKey);
+      if (fetchedModels && fetchedModels.length > 0) {
+        setModels(fetchedModels);
+      }
       setLastRefreshed(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
     } catch (e) {
-      console.error('Error fetching data in App:', e);
-      setModels([]);
+      console.warn('Error fetching data in App:', e);
     } finally {
       if (!isSilent) setIsLoading(false);
     }
@@ -141,9 +150,9 @@ export default function HomePage() {
 
     const timer = setInterval(() => {
       if (active) {
-        void fetchLiveModels(true); // Silent update in background
+        void fetchLiveModels(true); // Silent background update
       }
-    }, 30000);
+    }, 45000); // 45s interval to save CPU/battery
 
     return () => {
       active = false;
@@ -172,15 +181,6 @@ export default function HomePage() {
     }, 0);
     return () => clearTimeout(timer);
   }, []);
-
-  // Auto-select a random live model upon landing
-  useEffect(() => {
-    if (isMounted && models.length > 0 && !hasAutoSelectedRef.current && !selectedModel) {
-      hasAutoSelectedRef.current = true;
-      const randomIndex = Math.floor(Math.random() * models.length);
-      setSelectedModel(models[randomIndex]);
-    }
-  }, [models, isMounted, selectedModel]);
 
   // Save tokens to localStorage
   useEffect(() => {

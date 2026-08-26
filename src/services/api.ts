@@ -1,74 +1,84 @@
-const CACHE_NAME = 'models-cache-v1';
+const CACHE_KEY = 'redex_models_cache_v1';
+const MEMORY_CACHE = new Map<string, { data: any[]; timestamp: number }>();
+const CACHE_TTL_MS = 60 * 1000; // 1 minute in-memory cache
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-async function fetchWithBackoff(url: string, retries = 3, baseDelay = 1000): Promise<Response> {
+async function fetchWithBackoff(url: string, retries = 2, baseDelay = 300): Promise<Response> {
   let attempt = 0;
   while (attempt < retries) {
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6000); // 6s timeout per attempt
+
       const response = await fetch(url, {
-        headers: { 'Accept': 'application/json' }
+        headers: { 'Accept': 'application/json' },
+        signal: controller.signal
       });
+      clearTimeout(timeoutId);
+
       if (response.ok) return response;
       if (response.status === 429 || response.status >= 500) {
-        // Retry on rate limits or server errors
-        throw new Error(`Server error ${response.status}`);
+        throw new Error(`Server status ${response.status}`);
       }
-      return response; // Return 4xx errors immediately without retry (except 429)
+      return response;
     } catch (err) {
       attempt++;
       if (attempt >= retries) throw err;
-      const delay = baseDelay * Math.pow(2, attempt - 1); // Exponential backoff: 1s, 2s...
-      console.warn(`[Network] Intento ${attempt} fallido. Reintentando en ${delay}ms...`);
+      const delay = baseDelay * attempt;
       await sleep(delay);
     }
   }
   throw new Error('All retries failed');
 }
 
+export function getCachedModels(paramsString: string = '') {
+  const cacheKey = paramsString || 'default';
+  const mem = MEMORY_CACHE.get(cacheKey);
+  if (mem && (Date.now() - mem.timestamp < CACHE_TTL_MS)) {
+    return mem.data;
+  }
+  try {
+    const raw = sessionStorage.getItem(`${CACHE_KEY}_${cacheKey}`);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch {}
+  return null;
+}
+
 export async function fetchModels(paramsString: string = '') {
+  const cacheKey = paramsString || 'default';
   const url = paramsString ? `/api/models?${paramsString}` : '/api/models';
   
   try {
     const response = await fetchWithBackoff(url);
 
     if (!response.ok) {
-      // Fallback a Cache Storage local si la API falla con error (Ej. 500)
-      const cached = await caches.match(url);
-      if (cached) {
-        console.warn("API falló. Sirviendo desde Cache API local en 0ms.");
-        const data = await cached.json();
-        return processModelsData(data);
-      }
-
-      let errData;
-      try { errData = await response.json(); } catch { errData = await response.text(); }
-      console.error('Error desde el servidor:', errData);
+      const fallback = getCachedModels(paramsString);
+      if (fallback) return fallback;
       return [];
     }
 
-    // Guarda clon de la respuesta exitosa asíncronamente en el Cache Storage
-    const clone = response.clone();
-    caches.open(CACHE_NAME).then(cache => {
-      cache.put(url, clone);
-    });
-
     const data = await response.json();
-    return processModelsData(data);
+    const processed = processModelsData(data);
     
-  } catch (error) {
-    console.error('Fallo de red al solicitar /api/models:', error);
-    // Modo Offline estricto: intentamos recuperar de la caché local
-    try {
-      const cached = await caches.match(url);
-      if (cached) {
-        console.warn("Modo sin conexión. Sirviendo desde Cache API local en 0ms.");
-        const data = await cached.json();
-        return processModelsData(data);
-      }
-    } catch (cacheErr) {
-      console.error("Error leyendo caché:", cacheErr);
+    // Save to memory cache & session storage
+    if (processed.length > 0) {
+      MEMORY_CACHE.set(cacheKey, { data: processed, timestamp: Date.now() });
+      try {
+        sessionStorage.setItem(`${CACHE_KEY}_${cacheKey}`, JSON.stringify(processed.slice(0, 80)));
+      } catch {}
     }
+
+    return processed;
+  } catch (error) {
+    console.warn('Network error, attempting cached fallback:', error);
+    const fallback = getCachedModels(paramsString);
+    if (fallback) return fallback;
     return [];
   }
 }

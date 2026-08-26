@@ -190,24 +190,24 @@ export const ModelRoomModal: React.FC<ModelRoomModalProps> = ({
            retryTimeout = setTimeout(initPlayer, delay);
         };
       } else if (isHlsUrl && Hls.isSupported()) {
-        // Fortified High-Performance HLS Config for ultra-stable live streaming
+        // Fortified High-Performance HLS Config for ultra-fast and lightweight live streaming
         hls = new Hls({
           enableWorker: true,
-          lowLatencyMode: false,
-          capLevelToPlayerSize: false,
-          maxBufferLength: 45,
-          maxMaxBufferLength: 90,
-          maxBufferSize: 90 * 1024 * 1024,
-          backBufferLength: 15,
+          lowLatencyMode: true,
+          capLevelToPlayerSize: true,
+          maxBufferLength: 15,
+          maxMaxBufferLength: 30,
+          maxBufferSize: 20 * 1024 * 1024,
+          backBufferLength: 5,
           liveSyncDurationCount: 3,
-          liveMaxLatencyDurationCount: 10,
+          liveMaxLatencyDurationCount: 6,
           progressive: true,
           startLevel: -1,
-          manifestLoadingTimeOut: 10000,
-          manifestLoadingMaxRetry: 5,
-          levelLoadingTimeOut: 10000,
-          fragLoadingTimeOut: 20000,
-          fragLoadingMaxRetry: 6,
+          manifestLoadingTimeOut: 6000,
+          manifestLoadingMaxRetry: 4,
+          levelLoadingTimeOut: 6000,
+          fragLoadingTimeOut: 10000,
+          fragLoadingMaxRetry: 4,
         });
 
         hls.loadSource(activeStreamUrl);

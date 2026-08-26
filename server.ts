@@ -24,7 +24,7 @@ app.get('/api/models', async (req, res) => {
     }
     // Ensure limit is sufficient for frontend pagination if not specified
     if (!targetUrl.searchParams.has('limit')) {
-      targetUrl.searchParams.set('limit', '300');
+      targetUrl.searchParams.set('limit', '120');
     }
 
     const cacheKey = targetUrl.toString();
@@ -245,10 +245,10 @@ export default {
           }
         });
 
-        // Forzar límite máximo seguro
-        let limitVal = parseInt(safeParams.get('limit') || '300', 10);
-        if (isNaN(limitVal) || limitVal < 1 || limitVal > 500) {
-          limitVal = 300;
+        // Forzar límite máximo seguro y óptimo para velocidad móvil
+        let limitVal = parseInt(safeParams.get('limit') || '120', 10);
+        if (isNaN(limitVal) || limitVal < 1 || limitVal > 300) {
+          limitVal = 120;
         }
         safeParams.set('limit', limitVal.toString());
         
