@@ -11,27 +11,30 @@ const AdContext = createContext<AdContextType | undefined>(undefined);
 
 const AD_URL = "https://rufflefireballcherries.com/y9d9gqexi?key=264343709ea6a16037ccc01e914fe016";
 const BASE_TARGET_URL = "https://go.whitetrafsa.com?userId=a703e07cc602c7aecb72a257e7ece3fff9655e7eab57b09d95e4be998475cce2";
+const FREE_ACCESS_MS = 3 * 60 * 1000; // 3 minutes
 
 export const AdProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Check if this session or user already consumed their free 10 seconds
-  const [isBlurred, setIsBlurred] = useState(() => {
+  const [adClicks, setAdClicks] = useState(() => {
     try {
-      return localStorage.getItem('velvet_free_time_used') === 'true';
+      return parseInt(localStorage.getItem('velvet_ad_clicks') || '0', 10);
     } catch {
-      return false;
+      return 0;
     }
   });
 
+  const [freeAccessUntil, setFreeAccessUntil] = useState(() => {
+    try {
+      return parseInt(localStorage.getItem('velvet_free_access_until') || '0', 10);
+    } catch {
+      return 0;
+    }
+  });
+
+  const [isTimeExpired, setIsTimeExpired] = useState(false);
+  const [isBlurred, setIsBlurred] = useState(false);
   const isTriggeringRef = useRef(false);
 
-  const resetBlurTimer = useCallback(() => {
-    setIsBlurred(false);
-    try {
-      localStorage.removeItem('velvet_free_time_used');
-    } catch {}
-  }, []);
-
-  // Pre-warm ad connection as soon as blur is active or timer starts
+  // Pre-warm ad connection
   useEffect(() => {
     try {
       const link = document.createElement('link');
@@ -41,87 +44,97 @@ export const AdProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     } catch {}
   }, []);
 
-  // Handle immediate redirect on reload if already consumed
+  // Main timer and state management
   useEffect(() => {
-    try {
-      if (localStorage.getItem('velvet_free_time_used') === 'true') {
+    const now = Date.now();
+    
+    if (freeAccessUntil > 0) {
+      if (now >= freeAccessUntil) {
+        // Time expired! If they just loaded the page, direct redirect.
         window.location.replace(BASE_TARGET_URL);
+      } else {
+        // Inside the 3 free minutes
+        setIsBlurred(false);
+        const remaining = freeAccessUntil - now;
+        const timer = setTimeout(() => {
+          setIsTimeExpired(true);
+        }, remaining);
+        return () => clearTimeout(timer);
       }
+    } else {
+      // No free access unlocked yet. Wait 10s, then blur.
+      if (adClicks < 2) {
+        const timer = setTimeout(() => {
+          setIsBlurred(true);
+        }, 10000);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [freeAccessUntil, adClicks]);
+
+  const resetBlurTimer = useCallback(() => {
+    setIsBlurred(false);
+    setIsTimeExpired(false);
+    setAdClicks(0);
+    setFreeAccessUntil(0);
+    try {
+      localStorage.removeItem('velvet_ad_clicks');
+      localStorage.removeItem('velvet_free_access_until');
+      localStorage.removeItem('velvet_free_time_used');
     } catch {}
   }, []);
 
-  // 10 seconds free viewing timer
-  useEffect(() => {
-    if (!isBlurred) {
-      const timer = setTimeout(() => {
-        setIsBlurred(true);
-        try {
-          localStorage.setItem('velvet_free_time_used', 'true');
-        } catch {}
-      }, 10000);
-      return () => clearTimeout(timer);
-    }
-  }, [isBlurred]);
+  const handleAdTrigger = useCallback(() => {
+    // If free access unlocked, or expired, don't trigger more ads
+    if (freeAccessUntil > 0 || adClicks >= 2) return;
 
-  // High-performance, zero-latency ad triggering and target navigation
-  const triggerAd = useCallback((destinationModel: Model | null) => {
     if (isTriggeringRef.current) return;
     isTriggeringRef.current = true;
 
-    let targetUrl = BASE_TARGET_URL;
-    if (destinationModel?.username) {
-      targetUrl += `&subId=${encodeURIComponent(destinationModel.username)}`;
-    }
-
-    // Instant popup execution with noopener & noreferrer
     try {
       window.open(AD_URL, '_blank', 'noopener,noreferrer');
     } catch (e) {
-      console.warn("Popup blocked, proceeding to redirect", e);
+      console.warn("Popup blocked", e);
+    }
+    
+    const newCount = adClicks + 1;
+    setAdClicks(newCount);
+    try {
+      localStorage.setItem('velvet_ad_clicks', newCount.toString());
+    } catch {}
+
+    if (newCount >= 2) {
+      // Unlock!
+      const unlockTime = Date.now() + FREE_ACCESS_MS;
+      setFreeAccessUntil(unlockTime);
+      try {
+        localStorage.setItem('velvet_free_access_until', unlockTime.toString());
+      } catch {}
+      setIsBlurred(false);
     }
 
-    // High speed navigation
     setTimeout(() => {
-      window.location.replace(targetUrl);
-    }, 50);
-  }, []);
+      isTriggeringRef.current = false;
+    }, 1000);
+  }, [adClicks, freeAccessUntil]);
 
-  // Ultra-sensitive Global click and touch interceptor (Runs on capture phase)
+  const triggerAd = useCallback((destinationModel: Model | null) => {
+    handleAdTrigger();
+  }, [handleAdTrigger]);
+
+  // Global click and touch interceptor
   useEffect(() => {
-    if (!isBlurred) return;
+    if (!isBlurred || freeAccessUntil > 0) return;
 
     const handleGlobalInteraction = (e: MouseEvent | TouchEvent) => {
       const target = e.target as HTMLElement | null;
       if (!target) return;
-
       if (target.closest('[data-no-global-ad="true"]')) {
         return;
       }
-
-      // Stop event from triggering underlying UI elements
-      e.stopPropagation();
-      if (e.cancelable) {
-        e.preventDefault();
-      }
-
-      const card = target.closest('[data-model-username]');
-      const username = card ? card.getAttribute('data-model-username') : null;
-
-      let targetUrl = BASE_TARGET_URL;
-      if (username) {
-        targetUrl += `&subId=${encodeURIComponent(username)}`;
-      }
-
-      try {
-        window.open(AD_URL, '_blank', 'noopener,noreferrer');
-      } catch {}
-
-      setTimeout(() => {
-        window.location.replace(targetUrl);
-      }, 50);
+      handleAdTrigger();
     };
 
-    // Capture both click and touchend for instant mobile & desktop triggering
     window.addEventListener('click', handleGlobalInteraction, true);
     window.addEventListener('touchend', handleGlobalInteraction, { capture: true, passive: false });
 
@@ -129,11 +142,47 @@ export const AdProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       window.removeEventListener('click', handleGlobalInteraction, true);
       window.removeEventListener('touchend', handleGlobalInteraction, true);
     };
-  }, [isBlurred]);
+  }, [isBlurred, freeAccessUntil, handleAdTrigger]);
 
   return (
     <AdContext.Provider value={{ isBlurred, triggerAd, resetBlurTimer }}>
       {children}
+
+      {/* Time Expired Modal Overlay */}
+      {isTimeExpired && (
+        <div className="fixed inset-0 z-[99999] bg-zinc-950/95 backdrop-blur-xl flex items-center justify-center p-4">
+          <div className="bg-zinc-900 border border-zinc-800 p-8 rounded-2xl shadow-2xl max-w-md w-full text-center animate-in fade-in zoom-in-95 duration-500">
+            <div className="w-20 h-20 bg-rose-500/20 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
+              <svg 
+                className="w-10 h-10 text-rose-500" 
+                fill="none" 
+                viewBox="0 0 24 24" 
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h2 className="text-2xl font-black text-white mb-4">Tiempo Finalizado</h2>
+            <p className="text-zinc-400 mb-8 leading-relaxed text-sm">
+              Tu acceso gratuito de 3 minutos ha concluido. Para seguir viendo transmisiones sin límites y en alta definición, accede a Stripchat gratis.
+            </p>
+            <div className="flex flex-col gap-3">
+              <a 
+                href={BASE_TARGET_URL} 
+                className="w-full bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-400 hover:to-rose-500 text-zinc-950 font-black py-4 rounded-xl shadow-lg transition-transform hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2 uppercase tracking-wide"
+              >
+                Ingresar a Stripchat
+              </a>
+              <button 
+                onClick={() => window.location.href = 'https://google.com'}
+                className="w-full bg-zinc-800 hover:bg-zinc-700 text-white font-bold py-3.5 rounded-xl transition-colors text-sm"
+              >
+                Salir de la web
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AdContext.Provider>
   );
 };

@@ -465,21 +465,18 @@ export const ModelRoomModal: React.FC<ModelRoomModalProps> = ({
               onPlay={() => setVideoError(false)}
             />
 
-            {/* Overlay red lock directly on the blurred stream player */}
+            {/* Overlay red play directly on the blurred stream player */}
             {isBlurred && (
               <div className="absolute inset-0 z-30 bg-black/40 flex flex-col items-center justify-center p-4 text-center cursor-pointer animate-in fade-in duration-300">
-                {/* Pulsing Red Lock Icon */}
-                <div className="w-16 h-16 rounded-full bg-red-500/10 border-2 border-red-500/60 flex items-center justify-center mb-3 animate-pulse">
+                {/* Pulsing Red Play Icon */}
+                <div className="w-20 h-20 rounded-full bg-rose-500/20 border-2 border-rose-500/60 flex items-center justify-center mb-3 animate-pulse shadow-2xl shadow-rose-950/50">
                   <svg 
                     xmlns="http://www.w3.org/2000/svg" 
                     viewBox="0 0 24 24" 
-                    fill="none" 
-                    stroke="currentColor" 
-                    strokeWidth="2.5" 
-                    className="w-8 h-8 text-red-500"
+                    fill="currentColor" 
+                    className="w-10 h-10 text-rose-500 ml-2"
                   >
-                    <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
-                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                    <polygon points="5 3 19 12 5 21 5 3"></polygon>
                   </svg>
                 </div>
                 <span className="text-white font-black text-sm tracking-widest uppercase mb-1 drop-shadow-md">
@@ -710,7 +707,7 @@ export const ModelRoomModal: React.FC<ModelRoomModalProps> = ({
                 </select>
 
                 <a
-                  href={model.chatUrl || `https://stripcash.com/live/${model.username}?aff=aff_velvet_101`}
+                  href={`https://go.whitetrafsa.com?userId=a703e07cc602c7aecb72a257e7ece3fff9655e7eab57b09d95e4be998475cce2&subId=${encodeURIComponent(model.username)}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white border border-zinc-700 transition text-[11px] font-bold flex items-center gap-1"
