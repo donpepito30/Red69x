@@ -33,6 +33,9 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
       isLovenseOnly: false,
       isHdOnly: false,
       language: 'all',
+      ethnicity: 'all',
+      hairColor: 'all',
+      bodyType: 'all',
     });
   };
 

@@ -31,7 +31,7 @@ export const ModelCard: React.FC<ModelCardProps> = memo(({
 
   // Suscripción al Singleton global para saber si este video debe estar activo
   useEffect(() => {
-    return hlsManager.subscribe((activeId) => {
+    const unsubscribe = hlsManager.subscribe((activeId) => {
       const active = activeId === model.id;
       setIsActive(active);
       if (!active && videoRef.current) {
@@ -41,6 +41,9 @@ export const ModelCard: React.FC<ModelCardProps> = memo(({
         videoRef.current.load();
       }
     });
+    return () => {
+      unsubscribe();
+    };
   }, [model.id]);
 
   // Manejo visual de HLS delegando al Singleton

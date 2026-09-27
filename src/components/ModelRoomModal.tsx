@@ -1024,7 +1024,7 @@ export const ModelRoomModal: React.FC<ModelRoomModalProps> = ({
                   <CompactModelCard
                     model={m}
                     isFavorite={false}
-                    onToggleFavorite={onToggleFavorite}
+                    onToggleFavorite={(_e, mod) => onToggleFavorite(mod)}
                     onSelectModel={triggerAd}
                   />
                 </div>

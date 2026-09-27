@@ -431,6 +431,9 @@ export default function HomePage() {
                   isLovenseOnly: false,
                   isHdOnly: false,
                   language: 'all',
+                  ethnicity: 'all',
+                  hairColor: 'all',
+                  bodyType: 'all',
                 })
               }
               className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs"
@@ -550,10 +553,10 @@ export default function HomePage() {
               <button onClick={handleToggleFilterDrawer} className="hover:text-rose-400 transition">
                 Filtros Avanzados
               </button>
-              <a href="#privacy" onClick={(e) => { e.preventDefault(); alert('Política de Privacidad de redex69: Todos los pagos son totalmente discretos, seguros y encriptados bajo protocolo SSL.'); }} className="hover:text-white transition">
+              <a href="#privacy" className="hover:text-white transition">
                 Privacidad & Discreción
               </a>
-              <a href="#terms" onClick={(e) => { e.preventDefault(); alert('Términos y Condiciones: Acceso exclusivo para adultos mayores de 18 años (18+).'); }} className="hover:text-white transition">
+              <a href="#terms" className="hover:text-white transition">
                 Términos 18+
               </a>
             </div>

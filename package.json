@@ -7,7 +7,8 @@
     "dev": "tsx server.ts",
     "build": "vite build && esbuild server.ts --bundle --target=es2022 --format=esm --packages=external --sourcemap --outfile=dist/server.js",
     "start": "NODE_ENV=production node dist/server.js",
-    "deploy": "echo 'Build listo para despliegue'"
+    "deploy": "echo 'Build listo para despliegue'",
+    "lint": "tsc --noEmit"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

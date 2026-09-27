@@ -258,8 +258,8 @@ export default {
 
         // 1. Verificar si la respuesta ya existe en la Cache API de Cloudflare
         const cacheUrl = new URL(request.url);
-        const cache = caches.default;
-        let response = await cache.match(cacheUrl);
+        const cache = (caches as any).default;
+        let response = await cache?.match(cacheUrl);
 
         if (response) {
           // Respuesta servida instantáneamente desde la caché Edge de Cloudflare
