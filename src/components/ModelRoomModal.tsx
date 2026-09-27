@@ -54,7 +54,7 @@ export const ModelRoomModal: React.FC<ModelRoomModalProps> = ({
   models,
   onSelectModel,
 }) => {
-  const { triggerAd, isBlurred } = useAd();
+  const { triggerAd, isBlurred, isTimeExpired } = useAd();
   const [activeTab, setActiveTab] = useState<'chat' | 'tips' | 'bio' | 'gallery'>('chat');
   const [messages, setMessages] = useState<ChatMessage[]>(INITIAL_CHAT_MESSAGES);
   const [inputText, setInputText] = useState('');
@@ -63,6 +63,13 @@ export const ModelRoomModal: React.FC<ModelRoomModalProps> = ({
   const [isMuted, setIsMuted] = useState(true);
   const [isPlaying, setIsPlaying] = useState(true);
   const [resolution, setResolution] = useState<'auto' | '1080p' | '720p' | '240p'>('auto');
+
+  // Si expira el tiempo de prueba de 2 minutos, cerrar la sala de inmediato
+  useEffect(() => {
+    if (isTimeExpired) {
+      onClose();
+    }
+  }, [isTimeExpired, onClose]);
 
   const activeStreamUrl =
     resolution === '240p'
@@ -164,7 +171,7 @@ export const ModelRoomModal: React.FC<ModelRoomModalProps> = ({
   // Initialize optimized HLS live stream player with adaptive buffering
   useEffect(() => {
     const videoElem = videoRef.current;
-    if (!videoElem || streamSource !== 'video' || !activeStreamUrl) return;
+    if (!videoElem || streamSource !== 'video' || !activeStreamUrl || isBlurred || isTimeExpired) return;
 
     let hls: Hls | null = null;
     let retryTimeout: NodeJS.Timeout;
@@ -175,6 +182,7 @@ export const ModelRoomModal: React.FC<ModelRoomModalProps> = ({
     const isHlsUrl = activeStreamUrl.includes('.m3u8');
 
     const initPlayer = () => {
+      if (isBlurred || isTimeExpired) return;
       if (hls) {
         hls.destroy();
       }
@@ -261,7 +269,7 @@ export const ModelRoomModal: React.FC<ModelRoomModalProps> = ({
         videoElem.load();
       }
     };
-  }, [activeStreamUrl, streamSource]);
+  }, [activeStreamUrl, streamSource, isBlurred, isTimeExpired]);
 
   // Auto scroll chat to bottom
   useEffect(() => {
@@ -454,20 +462,25 @@ export const ModelRoomModal: React.FC<ModelRoomModalProps> = ({
             />
             <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/20 to-transparent pointer-events-none" />
 
-            {/* Live Stream Container: HTML5 HLS Video with Smart Cropping */}
-            <video
-              ref={videoRef}
-              autoPlay
-              muted={isMuted}
-              playsInline
-              poster={model.snapshotUrl || model.avatarUrl}
-              className={`absolute inset-0 w-full h-full ${videoObjectFitClass} z-10 transition-opacity duration-500 ${videoError ? 'opacity-0' : 'opacity-100'} ${isBlurred ? 'blur-2xl opacity-75' : ''}`}
-              onPlay={() => setVideoError(false)}
-            />
+            {/* Live Stream Container: HTML5 HLS Video with Smart Cropping ONLY when unlocked */}
+            {!isBlurred && !isTimeExpired && (
+              <video
+                ref={videoRef}
+                autoPlay
+                muted={isMuted}
+                playsInline
+                poster={model.snapshotUrl || model.avatarUrl}
+                className={`absolute inset-0 w-full h-full ${videoObjectFitClass} z-10 transition-opacity duration-500 ${videoError ? 'opacity-0' : 'opacity-100'}`}
+                onPlay={() => setVideoError(false)}
+              />
+            )}
 
-            {/* Overlay red play directly on the blurred stream player */}
-            {isBlurred && (
-              <div className="absolute inset-0 z-30 bg-black/40 flex flex-col items-center justify-center p-4 text-center cursor-pointer animate-in fade-in duration-300">
+            {/* Overlay red play directly on the locked stream player */}
+            {isBlurred && !isTimeExpired && (
+              <div 
+                onClick={() => triggerAd(model)}
+                className="absolute inset-0 z-30 bg-black/50 backdrop-blur-md flex flex-col items-center justify-center p-4 text-center cursor-pointer animate-in fade-in duration-300 active:scale-95 transition"
+              >
                 {/* Pulsing Red Play Icon */}
                 <div className="w-20 h-20 rounded-full bg-rose-500/20 border-2 border-rose-500/60 flex items-center justify-center mb-3 animate-pulse shadow-2xl shadow-rose-950/50">
                   <svg 

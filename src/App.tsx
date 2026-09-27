@@ -33,7 +33,7 @@ import {
 } from 'lucide-react';
 
 export default function HomePage() {
-  const { isBlurred, triggerAd } = useAd();
+  const { isBlurred, isTimeExpired, triggerAd } = useAd();
   const [models, setModels] = useState<Model[]>(() => {
     return getCachedModels('') || [];
   });
@@ -43,6 +43,13 @@ export default function HomePage() {
   const [userTokens, setUserTokens] = useState<number>(250);
   const [favorites, setFavorites] = useState<string[]>([]);
   const [isMounted, setIsMounted] = useState<boolean>(false);
+
+  // Si el tiempo libre de 2 minutos expira, cerrar inmediatamente la sala de reproducción
+  useEffect(() => {
+    if (isTimeExpired) {
+      setSelectedModel(null);
+    }
+  }, [isTimeExpired]);
 
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
   const [isBuyTokensOpen, setIsBuyTokensOpen] = useState(false);

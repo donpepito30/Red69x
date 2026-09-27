@@ -94,7 +94,7 @@ export const Navbar: React.FC<NavbarProps> = memo(({
             </div>
           </div>
 
-          {/* Active 6-Min Free Access Badge on Desktop/Tablet */}
+          {/* Active 2-Min Free Access Badge on Desktop/Tablet */}
           {secondsLeft > 0 && (
             <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-950/60 border border-emerald-500/30 text-emerald-400 text-xs font-bold">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />

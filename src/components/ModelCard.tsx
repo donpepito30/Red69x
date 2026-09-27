@@ -19,7 +19,7 @@ export const ModelCard: React.FC<ModelCardProps> = memo(({
   onToggleFavorite,
   onSelectModel,
 }) => {
-  const { triggerAd, isBlurred } = useAd();
+  const { triggerAd, isBlurred, isTimeExpired } = useAd();
   const [isHovered, setIsHovered] = useState(false);
   const [isActive, setIsActive] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
@@ -32,10 +32,10 @@ export const ModelCard: React.FC<ModelCardProps> = memo(({
   // Suscripción al Singleton global para saber si este video debe estar activo
   useEffect(() => {
     const unsubscribe = hlsManager.subscribe((activeId) => {
-      const active = activeId === model.id;
+      const active = activeId === model.id && !isBlurred && !isTimeExpired;
       setIsActive(active);
       if (!active && videoRef.current) {
-        // Cleanup visual inmediato cuando otro toma el control
+        // Cleanup visual inmediato cuando otro toma el control o se bloquea
         videoRef.current.pause();
         videoRef.current.removeAttribute('src');
         videoRef.current.load();
@@ -44,16 +44,16 @@ export const ModelCard: React.FC<ModelCardProps> = memo(({
     return () => {
       unsubscribe();
     };
-  }, [model.id]);
+  }, [model.id, isBlurred, isTimeExpired]);
 
   // Manejo visual de HLS delegando al Singleton
   useEffect(() => {
-    if (isActive && videoRef.current && model.videoUrl && !hasVideoError) {
+    if (isActive && !isBlurred && !isTimeExpired && videoRef.current && model.videoUrl && !hasVideoError) {
       hlsManager.play(videoRef.current, model.videoUrl, () => {
         setHasVideoError(true);
       });
     }
-  }, [isActive, model.videoUrl, hasVideoError]);
+  }, [isActive, isBlurred, isTimeExpired, model.videoUrl, hasVideoError]);
 
   // IntersectionObserver para Móviles (Auto-Play al hacer scroll)
   useEffect(() => {
@@ -133,14 +133,14 @@ export const ModelCard: React.FC<ModelCardProps> = memo(({
           } ${isBlurred ? 'blur-xl opacity-75' : ''}`}
         />
 
-        {/* Video Stream Preview ONLY mounted when active */}
-        {isActive && model.videoUrl && !hasVideoError && (
+        {/* Video Stream Preview ONLY mounted when active and authorized */}
+        {isActive && !isBlurred && !isTimeExpired && model.videoUrl && !hasVideoError && (
           <video
             ref={videoRef}
             muted={isMuted}
             loop
             playsInline
-            className={`absolute inset-0 w-full h-full object-cover z-0 transition-all duration-300 ${isBlurred ? 'blur-xl opacity-75' : ''}`}
+            className="absolute inset-0 w-full h-full object-cover z-0 transition-all duration-300"
           />
         )}
 

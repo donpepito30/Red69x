@@ -45,7 +45,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = memo(({
         <div className="bg-gradient-to-r from-emerald-950/90 via-zinc-900 to-rose-950/90 border-b border-emerald-500/20 px-3 py-1 flex items-center justify-between text-[11px]">
           <div className="flex items-center gap-1.5 font-bold text-emerald-400">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-            <span>Acceso Libre 6 Min</span>
+            <span>Acceso Libre 2 Min</span>
           </div>
           <div className="flex items-center gap-1 font-mono font-black text-white bg-black/40 px-2 py-0.5 rounded-full border border-emerald-500/30">
             <Clock className="w-3 h-3 text-emerald-400" />
