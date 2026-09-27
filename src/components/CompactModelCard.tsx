@@ -28,7 +28,7 @@ export const CompactModelCard: React.FC<CompactModelCardProps> = memo(({
         }
         onSelectModel(model);
       }}
-      className="group bg-zinc-900/80 hover:bg-zinc-900 border border-zinc-800/80 rounded-xl overflow-hidden hover:border-rose-500/50 hover:shadow-xl hover:shadow-rose-950/20 transition-all duration-200 cursor-pointer flex flex-col relative transform-gpu"
+      className="group bg-zinc-900/80 hover:bg-zinc-900 border border-zinc-800/80 rounded-xl overflow-hidden hover:border-rose-500/50 hover:shadow-xl hover:shadow-rose-950/20 active:scale-[0.98] transition-all duration-200 cursor-pointer flex flex-col relative transform-gpu select-none"
     >
       {/* Media Snapshot */}
       <div className="relative aspect-[4/3] bg-zinc-950 overflow-hidden">
@@ -77,22 +77,22 @@ export const CompactModelCard: React.FC<CompactModelCardProps> = memo(({
         </div>
 
         {/* Viewers & Fav (Top Right) */}
-        <div className="absolute top-2 right-2 flex items-center gap-1 z-10">
-          <span className="bg-zinc-950/80 text-zinc-200 text-[10px] font-bold px-1.5 py-0.5 rounded-md border border-zinc-800/80 flex items-center gap-1">
+        <div className="absolute top-1.5 right-1.5 flex items-center gap-1 z-10">
+          <span className="bg-zinc-950/85 backdrop-blur-sm text-zinc-200 text-[10px] font-bold px-1.5 py-0.5 rounded-md border border-zinc-800/80 flex items-center gap-1">
             <Eye className="w-2.5 h-2.5 text-rose-400" />
             {model.viewersCount > 999 ? `${(model.viewersCount / 1000).toFixed(1)}k` : model.viewersCount}
           </span>
 
           <button
             onClick={(e) => onToggleFavorite(e, model)}
-            className={`p-1 rounded-md backdrop-blur-md transition border ${
+            className={`min-w-[34px] min-h-[34px] flex items-center justify-center rounded-lg backdrop-blur-md transition border active:scale-90 ${
               isFavorite
-                ? 'bg-rose-600 border-rose-500 text-white'
-                : 'bg-zinc-950/70 border-zinc-800/80 text-zinc-400 hover:text-rose-400'
+                ? 'bg-rose-600 border-rose-500 text-white shadow-md'
+                : 'bg-zinc-950/80 border-zinc-800/80 text-zinc-400 hover:text-rose-400'
             }`}
             title="Favorito"
           >
-            <Heart className={`w-3 h-3 ${isFavorite ? 'fill-white' : ''}`} />
+            <Heart className={`w-3.5 h-3.5 ${isFavorite ? 'fill-white' : ''}`} />
           </button>
         </div>
 

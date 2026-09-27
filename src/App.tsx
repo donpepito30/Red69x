@@ -10,6 +10,7 @@ import { CompactModelCard } from '@/components/CompactModelCard';
 import { ModelRoomModal } from '@/components/ModelRoomModal';
 import { FilterDrawer } from '@/components/FilterDrawer';
 import { TokenPurchaseModal } from '@/components/TokenPurchaseModal';
+import { MobileBottomNav } from '@/components/MobileBottomNav';
 import { useAd } from '@/context/AdContext';
 import {
   Flame,
@@ -27,7 +28,8 @@ import {
   Globe,
   Loader2,
   Shuffle,
-  ChevronDown
+  ChevronDown,
+  X
 } from 'lucide-react';
 
 export default function HomePage() {
@@ -44,6 +46,8 @@ export default function HomePage() {
 
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
   const [isBuyTokensOpen, setIsBuyTokensOpen] = useState(false);
+  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
+  const [isFavoritesSheetOpen, setIsFavoritesSheetOpen] = useState(false);
 
   // Filter State
   const [filters, setFilters] = useState<FilterState>({
@@ -327,22 +331,24 @@ export default function HomePage() {
         onToggleFilterDrawer={handleToggleFilterDrawer}
         favoriteModels={favoriteModelObjects}
         onSelectModel={handleSelectModel}
+        isMobileSearchOpen={isMobileSearchOpen}
+        setIsMobileSearchOpen={setIsMobileSearchOpen}
       />
 
       {/* Category Pills Bar */}
       <CategoryPills filters={filters} setFilters={setFilters} />
 
-      {/* Section: Modelos Destacados (Vista Principal) - Replaces the old stats banner */}
+      {/* Section: Modelos Destacados (Vista Principal) */}
       {featuredModels.length > 0 && (
-        <section className="bg-gradient-to-b from-zinc-950 via-zinc-900/40 to-zinc-950 border-b border-zinc-900 py-8">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+        <section className="bg-gradient-to-b from-zinc-950 via-zinc-900/40 to-zinc-950 border-b border-zinc-900 py-6 sm:py-8">
+          <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 space-y-4 sm:space-y-6">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-2 sm:gap-2.5">
                 <span className="flex h-2.5 w-2.5 relative">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
                   <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500" />
                 </span>
-                <h2 className="text-xl font-black text-white tracking-tight">
+                <h2 className="text-lg sm:text-xl font-black text-white tracking-tight">
                   Modelos <span className="text-rose-500">Destacadas</span>
                 </h2>
               </div>
@@ -350,7 +356,7 @@ export default function HomePage() {
               <button
                 onClick={() => void fetchLiveModels(false)}
                 disabled={isLoading}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-[11px] font-bold text-zinc-300 transition"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-[11px] font-bold text-zinc-300 active:scale-95 transition"
                 title="Actualizar"
               >
                 <RefreshCw className={`w-3 h-3 text-rose-400 ${isLoading ? 'animate-spin' : ''}`} />
@@ -358,15 +364,17 @@ export default function HomePage() {
               </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Responsive grid / mobile horizontal snap carousel */}
+            <div className="flex md:grid md:grid-cols-3 overflow-x-auto md:overflow-visible snap-x snap-mandatory gap-3 sm:gap-6 pb-2 no-scrollbar -mx-3 px-3 sm:mx-0 sm:px-0">
               {featuredModels.map((model) => (
-                <ModelCard
-                  key={model.id}
-                  model={model}
-                  isFavorite={favorites.includes(model.id)}
-                  onToggleFavorite={handleToggleFavorite}
-                  onSelectModel={handleSelectModel}
-                />
+                <div key={model.id} className="min-w-[85vw] sm:min-w-[340px] md:min-w-0 snap-center shrink-0 md:shrink">
+                  <ModelCard
+                    model={model}
+                    isFavorite={favorites.includes(model.id)}
+                    onToggleFavorite={handleToggleFavorite}
+                    onSelectModel={handleSelectModel}
+                  />
+                </div>
               ))}
             </div>
           </div>
@@ -374,14 +382,14 @@ export default function HomePage() {
       )}
 
       {/* Main Grid Content */}
-      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
+      <main className="flex-1 max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-8 w-full pb-24 md:pb-8">
         
         {/* Results Counter & Active Filter Tags */}
-        <div className="flex items-center justify-between mb-6 pb-2 border-b border-zinc-900">
+        <div className="flex items-center justify-between mb-4 sm:mb-6 pb-2 border-b border-zinc-900">
           <div className="flex items-center gap-2 text-xs font-bold text-zinc-400">
-            <span>Mostrando <strong className="text-white">{filteredModels.length}</strong> transmisiones activas</span>
+            <span>Mostrando <strong className="text-white">{filteredModels.length}</strong> transmisiones</span>
             {filters.tags.length > 0 && (
-              <span className="text-rose-400">({filters.tags.join(', ')})</span>
+              <span className="text-rose-400 hidden xs:inline">({filters.tags.join(', ')})</span>
             )}
           </div>
 
@@ -390,7 +398,7 @@ export default function HomePage() {
             <select
               value={filters.sortBy}
               onChange={(e) => setFilters((prev) => ({ ...prev, sortBy: e.target.value as any }))}
-              className="bg-zinc-900 text-zinc-200 text-xs font-bold px-3 py-1.5 rounded-xl border border-zinc-800 outline-none"
+              className="bg-zinc-900 text-zinc-200 text-xs font-bold px-2.5 py-1.5 rounded-xl border border-zinc-800 outline-none"
             >
               <option value="viewers">Más Populares</option>
               <option value="rank">Ranking Top</option>
@@ -404,16 +412,16 @@ export default function HomePage() {
         {isLoading && models.length === 0 ? (
           <div className="py-20 text-center space-y-4">
             <Loader2 className="w-10 h-10 text-rose-500 animate-spin mx-auto" />
-            <p className="text-xs text-zinc-400 font-bold">Conectando con la API de Stripcash en tiempo real...</p>
+            <p className="text-xs text-zinc-400 font-bold">Conectando con la API en tiempo real...</p>
           </div>
         ) : filteredModels.length === 0 ? (
           /* Empty State if no filters match */
-          <div className="py-20 text-center space-y-4 max-w-md mx-auto">
+          <div className="py-20 text-center space-y-4 max-w-md mx-auto px-4">
             <div className="w-16 h-16 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center mx-auto text-zinc-500">
               <SearchX className="w-8 h-8" />
             </div>
             <div className="space-y-1">
-              <h3 className="font-extrabold text-base text-white">No se encontraron modelos coincidente</h3>
+              <h3 className="font-extrabold text-base text-white">No se encontraron modelos coincidentes</h3>
               <p className="text-xs text-zinc-400">
                 Prueba cambiando los criterios de búsqueda o limpiando las etiquetas seleccionadas.
               </p>
@@ -436,27 +444,27 @@ export default function HomePage() {
                   bodyType: 'all',
                 })
               }
-              className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs"
+              className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs active:scale-95 transition"
             >
               Restablecer Todos los Filtros
             </button>
           </div>
         ) : (
-          <div className="space-y-10">
+          <div className="space-y-8 sm:space-y-10">
             {/* 2. COMPACT BALANCED GRID WITH RANDOM ROTATION */}
             {remainingModels.length > 0 && (
-              <section className="space-y-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
+              <section className="space-y-3 sm:space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3">
                   <div className="flex items-center gap-2">
                     <div>
-                      <h2 className="text-sm font-extrabold text-white tracking-wide uppercase flex items-center gap-2">
+                      <h2 className="text-xs sm:text-sm font-extrabold text-white tracking-wide uppercase flex items-center gap-2">
                         Explorar Cámaras En Vivo
                         <span className="text-zinc-400 font-normal text-xs lowercase">
                           ({compactModelsToDisplay.length} de {remainingModels.length})
                         </span>
                       </h2>
-                      <p className="text-[11px] text-zinc-400">
-                        Navegación rápida en alta definición y con respuesta interactiva
+                      <p className="text-[10px] sm:text-[11px] text-zinc-400">
+                        Navegación ultra rápida en alta definición y con respuesta táctil
                       </p>
                     </div>
                   </div>
@@ -465,17 +473,18 @@ export default function HomePage() {
                     {/* Random Shuffle Button */}
                     <button
                       onClick={handleShuffleCompact}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-950/40 hover:bg-rose-900/60 border border-rose-800/60 text-xs font-bold text-rose-300 transition hover:scale-105 active:scale-95 shadow"
+                      className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-rose-950/40 hover:bg-rose-900/60 border border-rose-800/60 text-xs font-bold text-rose-300 transition active:scale-95 shadow"
                       title="Mezclar y rotar aleatoriamente la lista de cámaras"
                     >
                       <Shuffle className="w-3.5 h-3.5 text-rose-400" />
-                      <span>Rotar Cámaras Aleatorias</span>
+                      <span className="hidden xs:inline">Rotar Aleatorias</span>
+                      <span className="xs:hidden">Rotar</span>
                     </button>
                   </div>
                 </div>
 
-                {/* Compact Balanced Grid */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
+                {/* Compact Balanced Grid - 2 columns on mobile, up to 6 on desktop */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5 sm:gap-4">
                   {compactModelsToDisplay.map((model) => (
                     <CompactModelCard
                       key={model.id}
@@ -489,8 +498,8 @@ export default function HomePage() {
 
                 {/* Infinite Scroll Sentinel */}
                 {visibleCount < filteredModels.length && (
-                  <div ref={loadMoreRef} className="col-span-full w-full h-24 flex items-center justify-center pt-8">
-                    <div className="flex items-center gap-2 text-zinc-500 font-medium text-sm">
+                  <div ref={loadMoreRef} className="col-span-full w-full h-20 flex items-center justify-center pt-6">
+                    <div className="flex items-center gap-2 text-zinc-500 font-medium text-xs sm:text-sm">
                       <div className="w-4 h-4 rounded-full border-2 border-zinc-500 border-t-transparent animate-spin"></div>
                       Cargando más cámaras...
                     </div>
@@ -535,8 +544,98 @@ export default function HomePage() {
         setUserTokens={setUserTokens}
       />
 
+      {/* Mobile Favorites Bottom Sheet */}
+      {isFavoritesSheetOpen && (
+        <div 
+          onClick={() => setIsFavoritesSheetOpen(false)}
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm md:hidden flex flex-col justify-end animate-in fade-in duration-200"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="bg-zinc-900 border-t border-zinc-800 rounded-t-3xl p-5 max-h-[80vh] flex flex-col shadow-2xl animate-in slide-in-from-bottom duration-300 pb-safe"
+          >
+            {/* Grab handle affordance */}
+            <div className="w-10 h-1.5 bg-zinc-700 rounded-full mx-auto mb-4 shrink-0" />
+            
+            <div className="flex items-center justify-between pb-3 border-b border-zinc-800 mb-3">
+              <div className="flex items-center gap-2">
+                <Heart className="w-5 h-5 text-rose-500 fill-rose-500" />
+                <h3 className="font-extrabold text-base text-white">Modelos Favoritas ({favoriteModelObjects.length})</h3>
+              </div>
+              <button 
+                onClick={() => setIsFavoritesSheetOpen(false)}
+                className="p-1 rounded-full text-zinc-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {favoriteModelObjects.length === 0 ? (
+              <div className="py-10 text-center space-y-2">
+                <Heart className="w-10 h-10 text-zinc-600 mx-auto" />
+                <p className="text-sm font-semibold text-zinc-300">No tienes modelos guardadas</p>
+                <p className="text-xs text-zinc-500 max-w-xs mx-auto">
+                  Toca el icono del corazón en cualquier tarjeta para tener acceso directo a tus transmisiones preferidas.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2 overflow-y-auto max-h-[50vh] pr-1">
+                {favoriteModelObjects.map((m) => (
+                  <div
+                    key={m.id}
+                    onClick={() => {
+                      handleSelectModel(m);
+                      setIsFavoritesSheetOpen(false);
+                    }}
+                    className="flex items-center justify-between p-3 rounded-2xl bg-zinc-950 border border-zinc-800/80 active:bg-zinc-800/80 transition"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="relative w-12 h-12 rounded-full overflow-hidden shrink-0 border border-rose-500/60">
+                        <img src={m.avatarUrl} alt={m.displayName} className="w-full h-full object-cover" />
+                        <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 border-2 border-zinc-950" />
+                      </div>
+                      <div className="text-left">
+                        <div className="font-extrabold text-sm text-white truncate max-w-[160px]">
+                          {m.displayName}
+                        </div>
+                        <div className="text-xs text-zinc-400 flex items-center gap-1.5 mt-0.5">
+                          <span>{m.country}</span>
+                          <span>•</span>
+                          <span className="text-rose-400 font-semibold">{m.viewersCount} viewers</span>
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={(e) => handleToggleFavorite(e, m)}
+                      className="p-2 text-rose-500 active:scale-90 transition"
+                    >
+                      <Heart className="w-5 h-5 fill-rose-500" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Mobile Fixed Bottom Navigation Bar */}
+      <MobileBottomNav
+        filters={filters}
+        onOpenFilters={() => setIsFilterDrawerOpen(true)}
+        onOpenSearch={() => {
+          setIsMobileSearchOpen((prev) => !prev);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        onOpenFavorites={() => setIsFavoritesSheetOpen(true)}
+        onOpenBuyTokens={() => setIsBuyTokensOpen(true)}
+        userTokens={userTokens}
+        favoriteModels={favoriteModelObjects}
+        onScrollToTop={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+      />
+
       {/* Footer */}
-      <footer className="mt-auto bg-zinc-950 border-t border-zinc-900 py-10 text-xs text-zinc-500">
+      <footer className="mt-auto bg-zinc-950 border-t border-zinc-900 py-10 pb-28 md:pb-10 text-xs text-zinc-500">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4 pb-6 border-b border-zinc-900">
             <div className="flex items-center gap-2.5">

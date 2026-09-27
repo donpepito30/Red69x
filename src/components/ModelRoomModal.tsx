@@ -423,13 +423,13 @@ export const ModelRoomModal: React.FC<ModelRoomModalProps> = ({
       <div
         data-model-username={model.username}
         onClick={(e) => e.stopPropagation()}
-        className="bg-zinc-950 border border-zinc-800 md:rounded-3xl w-full max-w-6xl flex flex-col shadow-2xl relative cursor-default md:my-auto overflow-hidden h-full md:h-[90vh]"
+        className="bg-zinc-950 border-0 md:border md:border-zinc-800 md:rounded-3xl w-full max-w-6xl flex flex-col shadow-2xl relative cursor-default md:my-auto overflow-hidden h-[100dvh] md:h-[90vh]"
       >
         
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 z-50 p-2.5 rounded-full bg-zinc-900/80 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-700 transition"
+          className="absolute top-3 right-3 z-50 min-w-[42px] min-h-[42px] flex items-center justify-center rounded-full bg-zinc-950/85 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-700/80 active:scale-90 transition shadow-xl"
           style={{ zIndex: 60 }}
           title="Cerrar sala"
         >

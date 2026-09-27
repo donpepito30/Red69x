@@ -3,6 +3,8 @@ import { Model } from '@/lib/types';
 
 interface AdContextType {
   isBlurred: boolean;
+  freeAccessUntil: number;
+  secondsLeft: number;
   triggerAd: (destinationModel: Model | null) => void;
   resetBlurTimer: () => void;
 }
@@ -11,7 +13,7 @@ const AdContext = createContext<AdContextType | undefined>(undefined);
 
 const AD_URL = "https://rufflefireballcherries.com/y9d9gqexi?key=264343709ea6a16037ccc01e914fe016";
 const BASE_TARGET_URL = "https://go.whitetrafsa.com?userId=a703e07cc602c7aecb72a257e7ece3fff9655e7eab57b09d95e4be998475cce2";
-const FREE_ACCESS_MS = 3 * 60 * 1000; // 3 minutes
+const FREE_ACCESS_MS = 6 * 60 * 1000; // 6 minutes (el doble del tiempo original de 3 minutos)
 
 export const AdProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [adClicks, setAdClicks] = useState(() => {
@@ -32,6 +34,7 @@ export const AdProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 
   const [isTimeExpired, setIsTimeExpired] = useState(false);
   const [isBlurred, setIsBlurred] = useState(false);
+  const [secondsLeft, setSecondsLeft] = useState<number>(0);
   const isTriggeringRef = useRef(false);
 
   // Pre-warm ad connection
@@ -44,6 +47,21 @@ export const AdProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     } catch {}
   }, []);
 
+  // Countdown timer for active free access
+  useEffect(() => {
+    if (freeAccessUntil > 0) {
+      const update = () => {
+        const remaining = Math.max(0, Math.floor((freeAccessUntil - Date.now()) / 1000));
+        setSecondsLeft(remaining);
+      };
+      update();
+      const interval = setInterval(update, 1000);
+      return () => clearInterval(interval);
+    } else {
+      setSecondsLeft(0);
+    }
+  }, [freeAccessUntil]);
+
   // Main timer and state management
   useEffect(() => {
     const now = Date.now();
@@ -53,7 +71,7 @@ export const AdProvider: React.FC<{ children: React.ReactNode }> = ({ children }
         // Time expired! If they just loaded the page, direct redirect.
         window.location.replace(BASE_TARGET_URL);
       } else {
-        // Inside the 3 free minutes
+        // Inside the 6 free minutes
         setIsBlurred(false);
         const remaining = freeAccessUntil - now;
         const timer = setTimeout(() => {
@@ -77,6 +95,7 @@ export const AdProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     setIsTimeExpired(false);
     setAdClicks(0);
     setFreeAccessUntil(0);
+    setSecondsLeft(0);
     try {
       localStorage.removeItem('velvet_ad_clicks');
       localStorage.removeItem('velvet_free_access_until');
@@ -145,7 +164,7 @@ export const AdProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   }, [isBlurred, freeAccessUntil, handleAdTrigger]);
 
   return (
-    <AdContext.Provider value={{ isBlurred, triggerAd, resetBlurTimer }}>
+    <AdContext.Provider value={{ isBlurred, freeAccessUntil, secondsLeft, triggerAd, resetBlurTimer }}>
       {children}
 
       {/* Time Expired Modal Overlay */}
@@ -164,7 +183,7 @@ export const AdProvider: React.FC<{ children: React.ReactNode }> = ({ children }
             </div>
             <h2 className="text-2xl font-black text-white mb-4">Tiempo Finalizado</h2>
             <p className="text-zinc-400 mb-8 leading-relaxed text-sm">
-              Tu acceso gratuito de 3 minutos ha concluido. Para seguir viendo transmisiones sin límites y en alta definición, accede a Stripchat gratis.
+              Tu acceso gratuito de 6 minutos ha concluido. Para seguir viendo transmisiones sin límites y en alta definición, accede a Stripchat gratis.
             </p>
             <div className="flex flex-col gap-3">
               <a 

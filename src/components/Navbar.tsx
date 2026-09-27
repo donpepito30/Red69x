@@ -1,8 +1,9 @@
 
 
 import React, { useState, useEffect, memo } from 'react';
-import { Search, Flame, Heart, Coins, SlidersHorizontal, X } from 'lucide-react';
+import { Search, Flame, Heart, Coins, SlidersHorizontal, X, Clock } from 'lucide-react';
 import { Gender, FilterState, Model } from '@/lib/types';
+import { useAd } from '@/context/AdContext';
 
 interface NavbarProps {
   filters: FilterState;
@@ -12,6 +13,8 @@ interface NavbarProps {
   onToggleFilterDrawer: () => void;
   favoriteModels: Model[];
   onSelectModel: (model: Model) => void;
+  isMobileSearchOpen?: boolean;
+  setIsMobileSearchOpen?: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 export const Navbar: React.FC<NavbarProps> = memo(({
@@ -22,9 +25,28 @@ export const Navbar: React.FC<NavbarProps> = memo(({
   onToggleFilterDrawer,
   favoriteModels,
   onSelectModel,
+  isMobileSearchOpen = false,
+  setIsMobileSearchOpen,
 }) => {
+  const { secondsLeft } = useAd();
   const [showFavorites, setShowFavorites] = useState(false);
   const [localSearch, setLocalSearch] = useState(filters.search);
+  const [internalMobileSearch, setInternalMobileSearch] = useState(false);
+
+  const mobileSearchActive = setIsMobileSearchOpen ? isMobileSearchOpen : internalMobileSearch;
+  const toggleMobileSearch = () => {
+    if (setIsMobileSearchOpen) {
+      setIsMobileSearchOpen((prev) => !prev);
+    } else {
+      setInternalMobileSearch((prev) => !prev);
+    }
+  };
+
+  const formatTimer = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  };
 
   // Sync local search with external filter clears
   useEffect(() => {
@@ -50,29 +72,38 @@ export const Navbar: React.FC<NavbarProps> = memo(({
   ];
 
   return (
-    <header className="sticky top-0 z-40 bg-zinc-950/90 backdrop-blur-md border-b border-zinc-800/80 transition-all">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 gap-4">
+    <header className="sticky top-0 z-40 bg-zinc-950/95 backdrop-blur-md border-b border-zinc-800/80 transition-all">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-15 sm:h-16 gap-2 sm:gap-4">
           
           {/* Logo & Live Status */}
-          <div className="flex items-center gap-3 shrink-0">
-            <div className="flex items-center gap-2.5 cursor-pointer group" onClick={() => setFilters((prev) => ({ ...prev, gender: 'all', search: '', tags: [] }))}>
-              <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-rose-600 via-pink-600 to-amber-500 flex items-center justify-center shadow-lg shadow-rose-950/60 group-hover:scale-105 transition">
-                <span className="font-black text-white text-base tracking-tighter">R69</span>
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <div className="flex items-center gap-2 sm:gap-2.5 cursor-pointer group" onClick={() => setFilters((prev) => ({ ...prev, gender: 'all', search: '', tags: [] }))}>
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-gradient-to-tr from-rose-600 via-pink-600 to-amber-500 flex items-center justify-center shadow-lg shadow-rose-950/60 group-hover:scale-105 transition">
+                <span className="font-black text-white text-sm sm:text-base tracking-tighter">R69</span>
               </div>
               <div className="flex flex-col">
-                <span className="font-black text-lg tracking-wider text-white flex items-center">
+                <span className="font-black text-base sm:text-lg tracking-wider text-white flex items-center">
                   redex<span className="text-rose-500">69</span>
                 </span>
-                <span className="text-[10px] uppercase font-bold tracking-widest text-zinc-400 flex items-center gap-1">
+                <span className="text-[9px] sm:text-[10px] uppercase font-bold tracking-widest text-zinc-400 flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse inline-block" />
-                  Live HD Cams
+                  Live Cams
                 </span>
               </div>
             </div>
           </div>
 
-          {/* Search Bar */}
+          {/* Active 6-Min Free Access Badge on Desktop/Tablet */}
+          {secondsLeft > 0 && (
+            <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-950/60 border border-emerald-500/30 text-emerald-400 text-xs font-bold">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span>Acceso Libre:</span>
+              <span className="font-mono text-white font-black">{formatTimer(secondsLeft)}</span>
+            </div>
+          )}
+
+          {/* Desktop Search Bar */}
           <div className="hidden md:flex flex-1 max-w-md relative">
             <div className="relative w-full">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
@@ -94,7 +125,7 @@ export const Navbar: React.FC<NavbarProps> = memo(({
             </div>
           </div>
 
-          {/* Gender Tabs */}
+          {/* Gender Tabs (Desktop) */}
           <div className="hidden lg:flex items-center gap-1 bg-zinc-900/80 p-1 rounded-full border border-zinc-800">
             {genderOptions.map((item) => {
               const isActive = filters.gender === item.id;
@@ -116,12 +147,21 @@ export const Navbar: React.FC<NavbarProps> = memo(({
           </div>
 
           {/* Actions & User Balance */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-3">
             
+            {/* Mobile Search Toggle Button */}
+            <button
+              onClick={toggleMobileSearch}
+              className="md:hidden min-w-[40px] min-h-[40px] flex items-center justify-center rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white active:scale-95 transition"
+              title="Buscar modelos"
+            >
+              <Search className="w-4 h-4" />
+            </button>
+
             {/* Filter Toggle */}
             <button
               onClick={onToggleFilterDrawer}
-              className="p-2.5 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white hover:border-zinc-700 transition"
+              className="min-w-[40px] min-h-[40px] flex items-center justify-center rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white hover:border-zinc-700 active:scale-95 transition"
               title="Filtros avanzados"
             >
               <SlidersHorizontal className="w-4 h-4" />
@@ -131,7 +171,7 @@ export const Navbar: React.FC<NavbarProps> = memo(({
             <div className="relative">
               <button
                 onClick={() => setShowFavorites(!showFavorites)}
-                className="p-2.5 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-rose-400 transition relative"
+                className="min-w-[40px] min-h-[40px] flex items-center justify-center rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-rose-400 active:scale-95 transition relative"
                 title="Modelos Favoritas"
               >
                 <Heart className={`w-4 h-4 ${favoriteModels.length > 0 ? 'fill-rose-500 text-rose-500' : ''}`} />
@@ -144,20 +184,20 @@ export const Navbar: React.FC<NavbarProps> = memo(({
 
               {/* Favorites Dropdown */}
               {showFavorites && (
-                <div className="absolute right-0 mt-2 w-72 bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl p-3 z-50 animate-in fade-in slide-in-from-top-2">
+                <div className="absolute right-0 mt-2 w-72 max-w-[calc(100vw-2rem)] bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl p-3 z-50 animate-in fade-in slide-in-from-top-2">
                   <div className="flex items-center justify-between pb-2 mb-2 border-b border-zinc-800">
                     <span className="text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
                       <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500" />
                       Guardados ({favoriteModels.length})
                     </span>
-                    <button onClick={() => setShowFavorites(false)} className="text-zinc-500 hover:text-white">
+                    <button onClick={() => setShowFavorites(false)} className="text-zinc-500 hover:text-white p-1">
                       <X className="w-4 h-4" />
                     </button>
                   </div>
                   {favoriteModels.length === 0 ? (
                     <div className="text-center py-6 text-zinc-500 text-xs">
                       No has guardado modelos favoritas aún.
-                      <br />¡Haz clic en el corazón de cualquier modelo!
+                      <br />¡Toca el corazón de cualquier modelo!
                     </div>
                   ) : (
                     <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
@@ -191,15 +231,15 @@ export const Navbar: React.FC<NavbarProps> = memo(({
             </div>
 
             {/* Token Wallet */}
-            <div className="flex items-center bg-zinc-900 rounded-xl p-1 border border-zinc-800">
-              <div className="flex items-center gap-1.5 px-2.5 py-1">
-                <Coins className="w-4 h-4 text-amber-400" />
+            <div className="flex items-center bg-zinc-900 rounded-xl p-0.5 sm:p-1 border border-zinc-800">
+              <div className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1">
+                <Coins className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400" />
                 <span className="text-xs font-black text-amber-300">{userTokens}</span>
                 <span className="text-[10px] text-zinc-400 uppercase hidden sm:inline">TK</span>
               </div>
               <button
                 onClick={onOpenBuyTokens}
-                className="bg-gradient-to-r from-amber-500 to-rose-500 hover:from-amber-400 hover:to-rose-400 text-zinc-950 font-bold text-xs px-2.5 py-1.5 rounded-lg transition shadow-md shadow-amber-950/20"
+                className="bg-gradient-to-r from-amber-500 to-rose-500 hover:from-amber-400 hover:to-rose-400 text-zinc-950 font-bold text-[11px] sm:text-xs px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg transition active:scale-95 shadow-md shadow-amber-950/20"
               >
                 + Comprar
               </button>
@@ -208,6 +248,31 @@ export const Navbar: React.FC<NavbarProps> = memo(({
           </div>
 
         </div>
+
+        {/* Mobile Expandable Search Bar */}
+        {mobileSearchActive && (
+          <div className="md:hidden pb-3 pt-1 animate-in fade-in slide-in-from-top-2 duration-200">
+            <div className="relative w-full">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+              <input
+                type="text"
+                autoFocus
+                placeholder="Buscar modelo, país o categoría..."
+                value={localSearch}
+                onChange={(e) => setLocalSearch(e.target.value)}
+                className="w-full bg-zinc-900 text-sm text-zinc-100 placeholder-zinc-500 pl-10 pr-9 py-2.5 rounded-xl border border-zinc-700 focus:border-rose-500 outline-none shadow-lg"
+              />
+              {localSearch && (
+                <button
+                  onClick={() => { setLocalSearch(''); setFilters((prev) => ({ ...prev, search: '' })); }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white p-1"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
       </div>
     </header>

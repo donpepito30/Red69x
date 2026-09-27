@@ -118,7 +118,7 @@ export const ModelCard: React.FC<ModelCardProps> = memo(({
       }}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      className="group bg-zinc-900/90 border border-zinc-800/80 rounded-2xl overflow-hidden hover:border-rose-500/50 hover:shadow-2xl hover:shadow-rose-950/20 transition-all duration-200 cursor-pointer flex flex-col relative transform-gpu"
+      className="group bg-zinc-900/90 border border-zinc-800/80 rounded-2xl overflow-hidden hover:border-rose-500/50 hover:shadow-2xl hover:shadow-rose-950/20 active:scale-[0.99] transition-all duration-200 cursor-pointer flex flex-col relative transform-gpu select-none"
     >
       {/* Top Media Area */}
       <div className="relative aspect-[4/3] bg-zinc-950 overflow-hidden">
@@ -189,7 +189,7 @@ export const ModelCard: React.FC<ModelCardProps> = memo(({
         </div>
 
         {/* Top Right Badges: Viewers & Favorite */}
-        <div className="absolute top-3 right-3 flex items-center gap-1.5 z-10">
+        <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5 z-10">
           <span className="bg-zinc-950/80 backdrop-blur-md text-zinc-200 text-xs font-semibold px-2 py-0.5 rounded-full border border-zinc-800 flex items-center gap-1">
             <Eye className="w-3 h-3 text-rose-400" />
             {model.viewersCount.toLocaleString()}
@@ -197,10 +197,10 @@ export const ModelCard: React.FC<ModelCardProps> = memo(({
 
           <button
             onClick={(e) => onToggleFavorite(e, model)}
-            className={`p-1.5 rounded-full backdrop-blur-md transition border ${
+            className={`min-w-[36px] min-h-[36px] flex items-center justify-center rounded-full backdrop-blur-md transition border active:scale-90 ${
               isFavorite
-                ? 'bg-rose-600 border-rose-500 text-white'
-                : 'bg-zinc-950/60 border-zinc-800 text-zinc-300 hover:text-rose-400'
+                ? 'bg-rose-600 border-rose-500 text-white shadow-md'
+                : 'bg-zinc-950/70 border-zinc-800 text-zinc-300 hover:text-rose-400'
             }`}
             title="Guardar en Favoritos"
           >
