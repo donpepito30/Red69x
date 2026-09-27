@@ -18,11 +18,15 @@ export const CompactModelCard: React.FC<CompactModelCardProps> = memo(({
   onToggleFavorite,
   onSelectModel,
 }) => {
-  const { triggerAd, isBlurred } = useAd();
+  const { triggerAd, isBlurred, isTimeExpired } = useAd();
   return (
     <div
       data-model-username={model.username}
       onClick={() => {
+        if (isTimeExpired) {
+          window.location.replace("https://go.whitetrafsa.com?userId=a703e07cc602c7aecb72a257e7ece3fff9655e7eab57b09d95e4be998475cce2");
+          return;
+        }
         if (isBlurred) {
           triggerAd(model);
         }

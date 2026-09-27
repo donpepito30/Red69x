@@ -141,6 +141,79 @@ app.get('/api/models', async (req, res) => {
     }
   });
 
+  // --- SEGUIMIENTO DE TIEMPO DE PRUEBA EN SERVIDOR (ANTI-VIVEZA CRIOLLA) ---
+  interface TrialSession {
+    remainingSeconds: number;
+    lastTick: number;
+    expired: boolean;
+  }
+  const trialSessions = new Map<string, TrialSession>();
+
+  const getClientIdentifier = (req: express.Request): string => {
+    const forwarded = req.headers['x-forwarded-for'];
+    const ip = typeof forwarded === 'string' ? forwarded.split(',')[0].trim() : req.socket.remoteAddress || '127.0.0.1';
+    const ua = (req.headers['user-agent'] || '').slice(0, 50);
+    return `${ip}_${ua}`;
+  };
+
+  // Consultar estado de los 2 minutos (120 segundos)
+  app.get('/api/trial/status', (req, res) => {
+    const id = getClientIdentifier(req);
+    const session = trialSessions.get(id);
+    if (!session) {
+      return res.json({ remainingSeconds: 120, expired: false });
+    }
+    return res.json({
+      remainingSeconds: session.remainingSeconds,
+      expired: session.expired || session.remainingSeconds <= 0
+    });
+  });
+
+  // Ticking de reproducción en vivo desde el cliente
+  app.post('/api/trial/tick', (req, res) => {
+    const id = getClientIdentifier(req);
+    const requestedSeconds = typeof req.body?.secondsLeft === 'number' ? req.body.secondsLeft : null;
+
+    let session = trialSessions.get(id);
+    const now = Date.now();
+
+    if (!session) {
+      session = { 
+        remainingSeconds: requestedSeconds !== null ? Math.min(requestedSeconds, 120) : 120, 
+        lastTick: now, 
+        expired: false 
+      };
+      trialSessions.set(id, session);
+    }
+
+    if (session.expired || session.remainingSeconds <= 0) {
+      session.expired = true;
+      session.remainingSeconds = 0;
+      return res.json({ remainingSeconds: 0, expired: true });
+    }
+
+    // Calcular decremento razonable basado en tiempo transcurrido (mínimo 1, máximo 10)
+    const elapsedSec = Math.max(1, Math.min(10, Math.round((now - session.lastTick) / 1000))) || 1;
+    session.lastTick = now;
+
+    if (requestedSeconds !== null) {
+      // Tomar el mínimo entre lo que el cliente reporta y lo que el servidor tiene registrado
+      session.remainingSeconds = Math.min(session.remainingSeconds, requestedSeconds);
+    } else {
+      session.remainingSeconds = Math.max(0, session.remainingSeconds - elapsedSec);
+    }
+
+    if (session.remainingSeconds <= 0) {
+      session.expired = true;
+      session.remainingSeconds = 0;
+    }
+
+    return res.json({
+      remainingSeconds: session.remainingSeconds,
+      expired: session.expired
+    });
+  });
+
   // Vite middleware setup
 async function setupViteAndListen() {
   if (process.env.NODE_ENV !== 'production') {

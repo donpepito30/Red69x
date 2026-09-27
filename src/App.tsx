@@ -224,7 +224,16 @@ export default function HomePage() {
   }, []);
 
   // Memoized handlers for modals and drawers
-  const handleSelectModel = useCallback((m: Model) => setSelectedModel(m), []);
+  const handleSelectModel = useCallback(
+    (m: Model) => {
+      if (isTimeExpired) {
+        window.location.replace("https://go.whitetrafsa.com?userId=a703e07cc602c7aecb72a257e7ece3fff9655e7eab57b09d95e4be998475cce2");
+        return;
+      }
+      setSelectedModel(m);
+    },
+    [isTimeExpired]
+  );
   const handleOpenBuyTokens = useCallback(() => setIsBuyTokensOpen(true), []);
   const handleToggleFilterDrawer = useCallback(() => setIsFilterDrawerOpen((prev) => !prev), []);
 

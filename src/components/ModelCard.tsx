@@ -111,6 +111,10 @@ export const ModelCard: React.FC<ModelCardProps> = memo(({
       ref={cardRef}
       data-model-username={model.username}
       onClick={() => {
+        if (isTimeExpired) {
+          window.location.replace("https://go.whitetrafsa.com?userId=a703e07cc602c7aecb72a257e7ece3fff9655e7eab57b09d95e4be998475cce2");
+          return;
+        }
         if (isBlurred) {
           triggerAd(model);
         }

@@ -28,7 +28,8 @@ import {
   Radio,
   Share2,
   ExternalLink,
-  RefreshCw
+  RefreshCw,
+  Clock
 } from 'lucide-react';
 
 interface ModelRoomModalProps {
@@ -54,7 +55,7 @@ export const ModelRoomModal: React.FC<ModelRoomModalProps> = ({
   models,
   onSelectModel,
 }) => {
-  const { triggerAd, isBlurred, isTimeExpired } = useAd();
+  const { triggerAd, isBlurred, isTimeExpired, secondsLeft, setPlaybackActive } = useAd();
   const [activeTab, setActiveTab] = useState<'chat' | 'tips' | 'bio' | 'gallery'>('chat');
   const [messages, setMessages] = useState<ChatMessage[]>(INITIAL_CHAT_MESSAGES);
   const [inputText, setInputText] = useState('');
@@ -64,9 +65,45 @@ export const ModelRoomModal: React.FC<ModelRoomModalProps> = ({
   const [isPlaying, setIsPlaying] = useState(true);
   const [resolution, setResolution] = useState<'auto' | '1080p' | '720p' | '240p'>('auto');
 
-  // Si expira el tiempo de prueba de 2 minutos, cerrar la sala de inmediato
+  // Registrar inicio de reproducción activa para el conteo estricto de 2 minutos
+  useEffect(() => {
+    setPlaybackActive(true);
+    return () => {
+      setPlaybackActive(false);
+    };
+  }, [setPlaybackActive]);
+
+  // Disparar patrocinador Adsterra en primera apertura
+  useEffect(() => {
+    triggerAd(model);
+  }, []);
+
+  // Si expira el tiempo de prueba de 2 minutos, forzar salida inmediata de pantalla completa y cerrar
   useEffect(() => {
     if (isTimeExpired) {
+      try {
+        if (document.fullscreenElement) {
+          document.exitFullscreen?.().catch(() => {});
+        }
+        const docAny = document as any;
+        if (docAny.webkitFullscreenElement) {
+          docAny.webkitExitFullscreen?.();
+        }
+        if (docAny.mozFullScreenElement) {
+          docAny.mozCancelFullScreen?.();
+        }
+        if (docAny.msFullscreenElement) {
+          docAny.msExitFullscreen?.();
+        }
+        if (videoRef.current) {
+          const v = videoRef.current as any;
+          if (v.webkitExitFullscreen) v.webkitExitFullscreen();
+          if (v.webkitDisplayingFullscreen && v.webkitExitFullScreen) v.webkitExitFullScreen();
+          v.pause();
+          v.removeAttribute('src');
+          v.load();
+        }
+      } catch {}
       onClose();
     }
   }, [isTimeExpired, onClose]);
@@ -154,17 +191,34 @@ export const ModelRoomModal: React.FC<ModelRoomModalProps> = ({
     };
   }, []);
 
+  const formatTimer = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  };
+
   const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      // Target the video element directly for native hardware-accelerated full screen rendering
-      const target = videoRef.current || videoContainerRef.current;
+    if (isTimeExpired) return;
+    const docAny = document as any;
+    if (!document.fullscreenElement && !docAny.webkitFullscreenElement) {
+      // Prioritize videoContainerRef so UI elements and overlay are contained, with fallback to videoRef
+      const target = videoContainerRef.current || videoRef.current;
       if (target) {
-        target.requestFullscreen().catch((err) => {
-          console.warn('Error attempting to enable fullscreen:', err);
-        });
+        if (target.requestFullscreen) {
+          target.requestFullscreen().catch(() => {});
+        } else if ((target as any).webkitRequestFullscreen) {
+          (target as any).webkitRequestFullscreen();
+        } else if ((videoRef.current as any)?.webkitEnterFullscreen) {
+          // iOS Safari native fullscreen
+          (videoRef.current as any).webkitEnterFullscreen();
+        }
       }
     } else {
-      document.exitFullscreen().catch(() => {});
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      } else if (docAny.webkitExitFullscreen) {
+        docAny.webkitExitFullscreen();
+      }
     }
   };
 
@@ -462,6 +516,14 @@ export const ModelRoomModal: React.FC<ModelRoomModalProps> = ({
             />
             <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/20 to-transparent pointer-events-none" />
 
+            {/* Contador de Tiempo Libre en Vivo (2 Minutos) */}
+            {secondsLeft > 0 && !isTimeExpired && (
+              <div className="absolute top-3 left-3 z-30 flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/80 backdrop-blur-md border border-amber-500/40 text-amber-300 font-mono text-xs font-bold shadow-lg animate-pulse">
+                <span className="w-2 h-2 rounded-full bg-amber-400" />
+                <span>Prueba Libre: {formatTimer(secondsLeft)}</span>
+              </div>
+            )}
+
             {/* Live Stream Container: HTML5 HLS Video with Smart Cropping ONLY when unlocked */}
             {!isBlurred && !isTimeExpired && (
               <video
@@ -473,6 +535,25 @@ export const ModelRoomModal: React.FC<ModelRoomModalProps> = ({
                 className={`absolute inset-0 w-full h-full ${videoObjectFitClass} z-10 transition-opacity duration-500 ${videoError ? 'opacity-0' : 'opacity-100'}`}
                 onPlay={() => setVideoError(false)}
               />
+            )}
+
+            {/* Bloqueo Estricto dentro del Contenedor de Video (Garantía ante Fullscreen) */}
+            {isTimeExpired && (
+              <div className="absolute inset-0 z-50 bg-black flex flex-col items-center justify-center p-6 text-center text-white">
+                <div className="w-14 h-14 rounded-full bg-rose-500/20 text-rose-500 flex items-center justify-center mb-3 animate-pulse">
+                  <Clock className="w-7 h-7" />
+                </div>
+                <h3 className="text-lg font-black mb-1">Acceso Libre de 2 Minutos Finalizado</h3>
+                <p className="text-zinc-400 text-xs max-w-xs mb-4">
+                  Has completado los 2 minutos de reproducción gratuita permitidos.
+                </p>
+                <a
+                  href="https://go.whitetrafsa.com?userId=a703e07cc602c7aecb72a257e7ece3fff9655e7eab57b09d95e4be998475cce2"
+                  className="bg-gradient-to-r from-amber-500 to-rose-600 text-black font-black px-5 py-2.5 rounded-xl uppercase text-xs tracking-wider shadow-lg"
+                >
+                  Continuar en Stripchat Gratis
+                </a>
+              </div>
             )}
 
             {/* Overlay red play directly on the locked stream player */}
