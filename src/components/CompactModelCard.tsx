@@ -3,7 +3,7 @@
 import React, { memo } from 'react';
 import { Model } from '@/lib/types';
 import { Eye, Heart, Zap, Play } from 'lucide-react';
-import { useAd } from '@/context/AdContext';
+import { useAd, BASE_TARGET_URL } from '@/context/AdContext';
 
 interface CompactModelCardProps {
   model: Model;
@@ -24,7 +24,7 @@ export const CompactModelCard: React.FC<CompactModelCardProps> = memo(({
       data-model-username={model.username}
       onClick={() => {
         if (isTimeExpired) {
-          window.location.replace("https://go.whitetrafsa.com?userId=a703e07cc602c7aecb72a257e7ece3fff9655e7eab57b09d95e4be998475cce2");
+          window.location.replace(BASE_TARGET_URL);
           return;
         }
         if (isBlurred) {

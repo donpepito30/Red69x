@@ -11,7 +11,7 @@ import { ModelRoomModal } from '@/components/ModelRoomModal';
 import { FilterDrawer } from '@/components/FilterDrawer';
 import { TokenPurchaseModal } from '@/components/TokenPurchaseModal';
 import { MobileBottomNav } from '@/components/MobileBottomNav';
-import { useAd } from '@/context/AdContext';
+import { useAd, BASE_TARGET_URL } from '@/context/AdContext';
 import {
   Flame,
   Radio,
@@ -227,7 +227,7 @@ export default function HomePage() {
   const handleSelectModel = useCallback(
     (m: Model) => {
       if (isTimeExpired) {
-        window.location.replace("https://go.whitetrafsa.com?userId=a703e07cc602c7aecb72a257e7ece3fff9655e7eab57b09d95e4be998475cce2");
+        window.location.replace(BASE_TARGET_URL);
         return;
       }
       setSelectedModel(m);

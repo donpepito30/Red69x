@@ -16,7 +16,15 @@ interface AdContextType {
 const AdContext = createContext<AdContextType | undefined>(undefined);
 
 export const AD_URL = "https://rufflefireballcherries.com/y9d9gqexi?key=264343709ea6a16037ccc01e914fe016";
-export const BASE_TARGET_URL = "https://go.whitetrafsa.com?userId=a703e07cc602c7aecb72a257e7ece3fff9655e7eab57b09d95e4be998475cce2";
+
+// Enlace oficial de referido de Stripchat / Stripcash (WhiteTraffic Tracking Link)
+export const DEFAULT_REFERRAL_URL = "https://go.whitetrafsa.com?userId=a703e07cc602c7aecb72a257e7ece3fff9655e7eab57b09d95e4be998475cce2";
+
+// Soporte para variable de entorno o enlace por defecto de referido
+export const BASE_TARGET_URL: string =
+  (typeof import.meta !== 'undefined' && ((import.meta as any)?.env?.VITE_AFFILIATE_URL || (import.meta as any)?.env?.VITE_REFERRAL_URL)) ||
+  DEFAULT_REFERRAL_URL;
+
 export const TOTAL_FREE_SECONDS = 120; // 2 minutos exactos (120 segundos) de reproducción libre
 
 // Verificación multicapa permanente: localStorage + sessionStorage + Cookie
@@ -368,6 +376,15 @@ export const AdProvider: React.FC<{ children: React.ReactNode }> = ({ children }
             <div className="flex flex-col gap-3">
               <a
                 href={BASE_TARGET_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => {
+                  try {
+                    window.open(BASE_TARGET_URL, '_blank', 'noopener,noreferrer');
+                  } catch {
+                    window.location.href = BASE_TARGET_URL;
+                  }
+                }}
                 className="w-full bg-gradient-to-r from-amber-500 via-rose-500 to-pink-600 hover:from-amber-400 hover:to-rose-500 text-zinc-950 font-black py-4 rounded-xl shadow-lg transition-transform hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2 uppercase tracking-wide text-sm"
               >
                 Continuar en Stripchat Gratis

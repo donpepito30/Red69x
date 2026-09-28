@@ -5,7 +5,7 @@ import Hls from 'hls.js';
 import { Model, ChatMessage, TipOption } from '@/lib/types';
 import { INITIAL_CHAT_MESSAGES } from '@/lib/mockModelsData';
 import { CompactModelCard } from './CompactModelCard';
-import { useAd } from '@/context/AdContext';
+import { useAd, BASE_TARGET_URL } from '@/context/AdContext';
 import {
   X,
   Send,
@@ -548,8 +548,17 @@ export const ModelRoomModal: React.FC<ModelRoomModalProps> = ({
                   Has completado los 2 minutos de reproducción gratuita permitidos.
                 </p>
                 <a
-                  href="https://go.whitetrafsa.com?userId=a703e07cc602c7aecb72a257e7ece3fff9655e7eab57b09d95e4be998475cce2"
-                  className="bg-gradient-to-r from-amber-500 to-rose-600 text-black font-black px-5 py-2.5 rounded-xl uppercase text-xs tracking-wider shadow-lg"
+                  href={BASE_TARGET_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => {
+                    try {
+                      window.open(BASE_TARGET_URL, '_blank', 'noopener,noreferrer');
+                    } catch {
+                      window.location.href = BASE_TARGET_URL;
+                    }
+                  }}
+                  className="bg-gradient-to-r from-amber-500 to-rose-600 text-black font-black px-5 py-2.5 rounded-xl uppercase text-xs tracking-wider shadow-lg hover:opacity-90 active:scale-95 transition"
                 >
                   Continuar en Stripchat Gratis
                 </a>
@@ -619,7 +628,7 @@ export const ModelRoomModal: React.FC<ModelRoomModalProps> = ({
                     Reintentar ahora
                   </button>
                   <a
-                    href={model.chatUrl || `https://stripcash.com/live/${model.username}?aff=aff_velvet_101`}
+                    href={`${BASE_TARGET_URL}&subId=${encodeURIComponent(model.username)}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="py-2 px-4 bg-zinc-800/80 hover:bg-zinc-700/80 text-white font-bold text-xs rounded-xl backdrop-blur-md border border-zinc-700/50 transition flex items-center gap-2"
@@ -801,7 +810,7 @@ export const ModelRoomModal: React.FC<ModelRoomModalProps> = ({
                 </select>
 
                 <a
-                  href={`https://go.whitetrafsa.com?userId=a703e07cc602c7aecb72a257e7ece3fff9655e7eab57b09d95e4be998475cce2&subId=${encodeURIComponent(model.username)}`}
+                  href={`${BASE_TARGET_URL}&subId=${encodeURIComponent(model.username)}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white border border-zinc-700 transition text-[11px] font-bold flex items-center gap-1"
