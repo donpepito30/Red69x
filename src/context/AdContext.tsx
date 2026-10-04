@@ -20,10 +20,12 @@ export const AD_URL = "https://rufflefireballcherries.com/y9d9gqexi?key=26434370
 // Enlace oficial de referido de Stripchat / Stripcash (WhiteTraffic Tracking Link)
 export const DEFAULT_REFERRAL_URL = "https://go.whitetrafsa.com?userId=a703e07cc602c7aecb72a257e7ece3fff9655e7eab57b09d95e4be998475cce2";
 
-// Soporte para variable de entorno o enlace por defecto de referido
+// Soporte para variable de entorno o enlace por defecto de referido con verificación estricta de referido
+const envUrl = typeof import.meta !== 'undefined' && ((import.meta as any)?.env?.VITE_AFFILIATE_URL || (import.meta as any)?.env?.VITE_REFERRAL_URL);
 export const BASE_TARGET_URL: string =
-  (typeof import.meta !== 'undefined' && ((import.meta as any)?.env?.VITE_AFFILIATE_URL || (import.meta as any)?.env?.VITE_REFERRAL_URL)) ||
-  DEFAULT_REFERRAL_URL;
+  (envUrl && (envUrl.includes('userId=a703e07cc602c7aecb72a257e7ece3fff9655e7eab57b09d95e4be998475cce2') || envUrl.includes('aff_velvet_101')))
+    ? envUrl
+    : DEFAULT_REFERRAL_URL;
 
 export const TOTAL_FREE_SECONDS = 120; // 2 minutos exactos (120 segundos) de reproducción libre
 

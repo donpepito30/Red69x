@@ -247,9 +247,146 @@ if (typeof process !== 'undefined' && process.versions && process.versions.node)
 // Memoria caché simple en el código para Rate Limiting (sin requerir variables externas)
 const rateLimitCache = new Map<string, { count: number, resetTime: number }>();
 
+const getClientIdentifierWorker = (request: Request): string => {
+  const forwarded = request.headers.get('x-forwarded-for');
+  const ip = typeof forwarded === 'string' ? forwarded.split(',')[0].trim() : request.headers.get('cf-connecting-ip') || '127.0.0.1';
+  const ua = (request.headers.get('user-agent') || '').slice(0, 50);
+  return `${ip}_${ua}`;
+};
+
 export default {
   async fetch(request: Request, env: any, ctx: any): Promise<Response> {
     const url = new URL(request.url);
+
+    // --- Soporte para CORS OPTIONS preflight ---
+    if (request.method === 'OPTIONS') {
+      return new Response(null, {
+        status: 204,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+          'Access-Control-Max-Age': '86400'
+        }
+      });
+    }
+
+    // --- Interceptar API Trial Status (GET) de forma nativa en Workers ---
+    if (url.pathname === '/api/trial/status') {
+      const id = getClientIdentifierWorker(request);
+      const session = trialSessions.get(id);
+      const data = !session 
+        ? { remainingSeconds: 120, expired: false }
+        : {
+            remainingSeconds: session.remainingSeconds,
+            expired: session.expired || session.remainingSeconds <= 0
+          };
+      return new Response(JSON.stringify(data), {
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        }
+      });
+    }
+
+    // --- Interceptar API Trial Tick (POST) de forma nativa en Workers (Evita error 'pipes' de Express) ---
+    if (url.pathname === '/api/trial/tick' && request.method === 'POST') {
+      const id = getClientIdentifierWorker(request);
+      let requestedSeconds: number | null = null;
+      try {
+        const body = await request.clone().json() as any;
+        if (body && typeof body.secondsLeft === 'number') {
+          requestedSeconds = body.secondsLeft;
+        }
+      } catch (e) {
+        // Ignorar error de parsing si no hay body o es inválido
+      }
+
+      let session = trialSessions.get(id);
+      const now = Date.now();
+
+      if (!session) {
+        session = { 
+          remainingSeconds: requestedSeconds !== null ? Math.min(requestedSeconds, 120) : 120, 
+          lastTick: now, 
+          expired: false 
+        };
+        trialSessions.set(id, session);
+      }
+
+      if (session.expired || session.remainingSeconds <= 0) {
+        session.expired = true;
+        session.remainingSeconds = 0;
+        return new Response(JSON.stringify({ remainingSeconds: 0, expired: true }), {
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+        });
+      }
+
+      const elapsedSec = Math.max(1, Math.min(10, Math.round((now - session.lastTick) / 1000))) || 1;
+      session.lastTick = now;
+
+      if (requestedSeconds !== null) {
+        session.remainingSeconds = Math.min(session.remainingSeconds, requestedSeconds);
+      } else {
+        session.remainingSeconds = Math.max(0, session.remainingSeconds - elapsedSec);
+      }
+
+      if (session.remainingSeconds <= 0) {
+        session.expired = true;
+        session.remainingSeconds = 0;
+      }
+
+      return new Response(JSON.stringify({
+        remainingSeconds: session.remainingSeconds,
+        expired: session.expired
+      }), {
+        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+      });
+    }
+
+    // --- Interceptar API Gemini Chat (POST) de forma nativa en Workers (Evita error 'pipes' de Express) ---
+    if (url.pathname === '/api/gemini/chat' && request.method === 'POST') {
+      try {
+        let prompt = '';
+        let modelUsername = '';
+        try {
+          const body = await request.clone().json() as any;
+          prompt = body?.prompt || '';
+          modelUsername = body?.modelUsername || '';
+        } catch (e) {}
+
+        const apiKey = env.GEMINI_API_KEY || (typeof process !== 'undefined' ? process.env?.GEMINI_API_KEY : '');
+        if (!apiKey) {
+          return new Response(JSON.stringify({ text: 'Respuesta generada (Simulación): ¡Hola! Gracias por tu mensaje en el chat.' }), {
+            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+          });
+        }
+
+        const ai = new GoogleGenAI({ apiKey });
+        let systemInstruction = `Eres un asistente amable para un sitio de transmisión en vivo.`;
+        if (modelUsername) {
+          systemInstruction = `Estás interpretando a la modelo de transmisión en vivo con username "${modelUsername}". Tu personalidad es muy coqueta, cariñosa y amigable. Responde de manera breve y entusiasta (máximo 2 frases) al mensaje del usuario en el chat live. Idioma: Español.`;
+        }
+
+        const response = await ai.models.generateContent({
+          model: 'gemini-3.6-flash',
+          contents: prompt,
+          config: {
+            systemInstruction,
+            temperature: 0.8,
+            maxOutputTokens: 150,
+          },
+        });
+
+        return new Response(JSON.stringify({ text: response.text || '¡Gracias por estar en la transmisión!' }), {
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+        });
+      } catch (error) {
+        return new Response(JSON.stringify({ text: '¡Hola amor! Gracias por tu mensaje. ¡Disfruta el show en vivo!' }), {
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+        });
+      }
+    }
 
     // --- SEGURIDAD A NIVEL DE CÓDIGO (Sin variables de entorno) ---
     // Cambia '*' por tu dominio real si deseas restringirlo en el futuro (ej. 'https://midominio.com')
